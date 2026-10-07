@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for point."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import sys
 
@@ -68,15 +64,16 @@ class PointTest(test_case.TestCase):
     direction_init = np.random.random(size=tensor_shape + [3])
     direction_init /= np.maximum(
         np.linalg.norm(direction_init, axis=-1, keepdims=True), eps)
-    point_tensor = tf.convert_to_tensor(value=point_init)
-    origin_tensor = tf.convert_to_tensor(value=origin_init)
-    direction_tensor = tf.convert_to_tensor(value=direction_init)
 
-    y = point.distance_to_ray(point_tensor, origin_tensor, direction_tensor)
-
-    self.assert_jacobian_is_correct(point_tensor, point_init, y)
-    self.assert_jacobian_is_correct(origin_tensor, origin_init, y)
-    self.assert_jacobian_is_correct(direction_tensor, direction_init, y)
+    self.assert_jacobian_is_correct_fn(
+        lambda x: point.distance_to_ray(x, origin_init, direction_init),
+        [point_init])
+    self.assert_jacobian_is_correct_fn(
+        lambda x: point.distance_to_ray(point_init, x, direction_init),
+        [origin_init])
+    self.assert_jacobian_is_correct_fn(
+        lambda x: point.distance_to_ray(point_init, origin_init, x),
+        [direction_init])
 
   @parameterized.parameters(
       (((1., 1., 1.), (-10., 1., 1.), (1., 0., 0.)), ((0.,),)),)
@@ -155,11 +152,15 @@ class PointTest(test_case.TestCase):
     origin_tensor = tf.convert_to_tensor(value=origin_init)
     direction_tensor = tf.convert_to_tensor(value=direction_init)
 
-    y = point.project_to_ray(point_tensor, origin_tensor, direction_tensor)
-
-    self.assert_jacobian_is_correct(point_tensor, point_init, y)
-    self.assert_jacobian_is_correct(origin_tensor, origin_init, y)
-    self.assert_jacobian_is_correct(direction_tensor, direction_init, y)
+    self.assert_jacobian_is_correct_fn(
+        lambda x: point.project_to_ray(x, origin_tensor, direction_tensor),
+        [point_init])
+    self.assert_jacobian_is_correct_fn(
+        lambda x: point.project_to_ray(point_tensor, x, direction_tensor),
+        [origin_init])
+    self.assert_jacobian_is_correct_fn(
+        lambda x: point.project_to_ray(point_tensor, origin_tensor, x),
+        [direction_init])
 
   def test_project_to_ray_random(self):
     """Tests the function that projects a point to a ray."""

@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ from __future__ import print_function
 
 from absl.testing import parameterized
 import numpy as np
+from six.moves import range
+from six.moves import zip
 import tensorflow as tf
 
 import tensorflow_graphics.nn.layer.graph_convolution as gc_layer
@@ -82,7 +84,6 @@ class GraphConvolutionTestFeatureSteeredConvolutionLayerTests(
               translation_invariant=translation_invariant,
               num_weight_matrices=num_weight_matrices,
               num_output_channels=out_channels,
-              name=None,
               var_name=name_scope)
         except Exception as e:  # pylint: disable=broad-except
           self.fail("Exception raised: %s" % str(e))
@@ -127,7 +128,7 @@ class GraphConvolutionTestFeatureSteeredConvolutionLayerTests(
                                   (3, 0), (3, 2), (3, 3)))
     neighbors = tf.SparseTensor(
         neighbors_indices, np.ones(shape=(12,)) / 3.0, dense_shape=(4, 4))
-    initializer = tf.initializers.zeros()
+    initializer = tf.compat.v1.keras.initializers.zeros()
 
     if tf.executing_eagerly():
       layer = gc_layer.FeatureSteeredConvolutionKerasLayer(
@@ -175,7 +176,7 @@ class GraphConvolutionTestFeatureSteeredConvolutionLayerTests(
       for _ in range(num_training_iterations):
         grads = tape.gradient(loss, trainable_variables)
         tf.compat.v1.train.GradientDescentOptimizer(1e-4).apply_gradients(
-            zip(grads, trainable_variables))
+            list(zip(grads, trainable_variables)))
     else:
       output = gc_layer.feature_steered_convolution_layer(
           data=data,
@@ -233,7 +234,7 @@ class GraphConvolutionTestDynamicGraphConvolutionKerasLayerTests(
         num_output_channels=out_channels,
         reduction=reduction,
         use_bias=False,
-        kernel_initializer=tf.initializers.zeros())
+        kernel_initializer=tf.compat.v1.keras.initializers.zeros())
 
     output = layer(inputs=[data, neighbors], sizes=None)
 
@@ -293,7 +294,8 @@ class GraphConvolutionTestDynamicGraphConvolutionKerasLayerTests(
       for _ in range(num_training_iterations):
         grads = tape.gradient(loss, trainable_variables)
         tf.compat.v1.train.GradientDescentOptimizer(1e-4).apply_gradients(
-            zip(grads, trainable_variables))
+            list(zip(grads, trainable_variables)))
+
 
 if __name__ == "__main__":
   test_case.main()

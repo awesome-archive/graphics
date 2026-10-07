@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,14 +21,19 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from typing import Callable, List, Optional, Tuple
+
 import numpy as np
+from six.moves import range  # pyrefly: ignore[missing-source-for-stubs]
 import tensorflow as tf
 
 from tensorflow_graphics.util import export_api
 from tensorflow_graphics.util import shape
+from tensorflow_graphics.util import type_alias
 
 
-def _downsample(image, kernel):
+def _downsample(image: type_alias.TensorLike,
+                kernel: type_alias.TensorLike) -> tf.Tensor:
   """Downsamples the image using a convolution with stride 2.
 
   Args:
@@ -43,10 +48,12 @@ def _downsample(image, kernel):
     and width of the downsampled image.
 
   """
-  return tf.nn.conv2d(image, kernel, strides=[1, 2, 2, 1], padding="SAME")
+  return tf.nn.conv2d(
+      input=image, filters=kernel, strides=[1, 2, 2, 1], padding="SAME")
 
 
-def _binomial_kernel(num_channels, dtype=tf.float32):
+def _binomial_kernel(num_channels: int,
+                     dtype: tf.DType = tf.float32) -> tf.Tensor:
   """Creates a 5x5 binomial kernel.
 
   Args:
@@ -56,14 +63,16 @@ def _binomial_kernel(num_channels, dtype=tf.float32):
   Returns:
     A tensor of shape `[5, 5, num_channels, num_channels]`.
   """
-  kernel = np.array((1., 4., 6., 4., 1.), dtype=dtype.as_numpy_dtype())
+  kernel = np.array((1., 4., 6., 4., 1.), dtype=dtype.as_numpy_dtype)
   kernel = np.outer(kernel, kernel)
   kernel /= np.sum(kernel)
   kernel = kernel[:, :, np.newaxis, np.newaxis]
   return tf.constant(kernel, dtype=dtype) * tf.eye(num_channels, dtype=dtype)
 
 
-def _build_pyramid(image, sampler, num_levels):
+def _build_pyramid(image: type_alias.TensorLike, sampler: Callable[
+    [type_alias.TensorLike, type_alias.TensorLike], type_alias.TensorLike],
+                   num_levels: int) -> List[tf.Tensor]:
   """Creates the different levels of the pyramid.
 
   Args:
@@ -85,7 +94,8 @@ def _build_pyramid(image, sampler, num_levels):
   return levels
 
 
-def _split(image, kernel):
+def _split(image: type_alias.TensorLike,
+           kernel: type_alias.TensorLike) -> Tuple[tf.Tensor, tf.Tensor]:
   """Splits the image into high and low frequencies.
 
   This is achieved by smoothing the input image and substracting the smoothed
@@ -110,7 +120,10 @@ def _split(image, kernel):
   return high, low
 
 
-def _upsample(image, kernel, output_shape=None):
+def _upsample(image: type_alias.TensorLike,
+              kernel: type_alias.TensorLike,
+              output_shape: Optional[type_alias.TensorLike] = None
+              ) -> tf.Tensor:
   """Upsamples the image using a transposed convolution with stride 2.
 
   Args:
@@ -137,7 +150,9 @@ def _upsample(image, kernel, output_shape=None):
       padding="SAME")
 
 
-def downsample(image, num_levels, name=None):
+def downsample(image: type_alias.TensorLike,
+               num_levels: int,
+               name: str = "pyramid_downsample") -> List[tf.Tensor]:
   """Generates the different levels of the pyramid (downsampling).
 
   Args:
@@ -155,7 +170,7 @@ def downsample(image, num_levels, name=None):
   Raises:
     ValueError: If the shape of `image` is not supported.
   """
-  with tf.compat.v1.name_scope(name, "pyramid_downsample", [image]):
+  with tf.name_scope(name):
     image = tf.convert_to_tensor(value=image)
 
     shape.check_static(tensor=image, tensor_name="image", has_rank=4)
@@ -163,7 +178,8 @@ def downsample(image, num_levels, name=None):
     return _build_pyramid(image, _downsample, num_levels)
 
 
-def merge(levels, name=None):
+def merge(levels: List[type_alias.TensorLike],
+          name: str = "pyramid_merge") -> tf.Tensor:
   """Merges the different levels of the pyramid back to an image.
 
   Args:
@@ -180,7 +196,7 @@ def merge(levels, name=None):
   Raises:
     ValueError: If the shape of the elements of `levels` is not supported.
   """
-  with tf.compat.v1.name_scope(name, "pyramid_merge", levels):
+  with tf.name_scope(name):
     levels = [tf.convert_to_tensor(value=level) for level in levels]
 
     for index, level in enumerate(levels):
@@ -194,7 +210,9 @@ def merge(levels, name=None):
     return image
 
 
-def split(image, num_levels, name=None):
+def split(image: type_alias.TensorLike,
+          num_levels: int,
+          name: str = "pyramid_split") -> List[tf.Tensor]:
   """Generates the different levels of the pyramid.
 
   Args:
@@ -211,7 +229,7 @@ def split(image, num_levels, name=None):
   Raises:
     ValueError: If the shape of `image` is not supported.
   """
-  with tf.compat.v1.name_scope(name, "pyramid_split", [image]):
+  with tf.name_scope(name):
     image = tf.convert_to_tensor(value=image)
 
     shape.check_static(tensor=image, tensor_name="image", has_rank=4)
@@ -226,7 +244,9 @@ def split(image, num_levels, name=None):
     return levels
 
 
-def upsample(image, num_levels, name=None):
+def upsample(image: type_alias.TensorLike,
+             num_levels: int,
+             name: str = "pyramid_upsample") -> List[tf.Tensor]:
   """Generates the different levels of the pyramid (upsampling).
 
   Args:
@@ -244,7 +264,7 @@ def upsample(image, num_levels, name=None):
   Raises:
     ValueError: If the shape of `image` is not supported.
   """
-  with tf.compat.v1.name_scope(name, "pyramid_upsample", [image]):
+  with tf.name_scope(name):
     image = tf.convert_to_tensor(value=image)
 
     shape.check_static(tensor=image, tensor_name="image", has_rank=4)

@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,20 +18,20 @@ Graphics. These asserts will be activated only if the debug flag
 TFG_ADD_ASSERTS_TO_GRAPH is set to True.
 """
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
+from typing import Optional
 from absl import flags
 import numpy as np
 import tensorflow as tf
 
 from tensorflow_graphics.util import tfg_flags
+from tensorflow_graphics.util import type_alias
 
 FLAGS = flags.FLAGS
 
 
-def assert_no_infs_or_nans(tensor, name=None):
+def assert_no_infs_or_nans(
+    tensor: type_alias.TensorLike,
+    name: str = 'assert_no_infs_or_nans') -> tf.Tensor:
   """Checks a tensor for NaN and Inf values.
 
   Note:
@@ -51,7 +51,7 @@ def assert_no_infs_or_nans(tensor, name=None):
   if not FLAGS[tfg_flags.TFG_ADD_ASSERTS_TO_GRAPH].value:
     return tensor
 
-  with tf.compat.v1.name_scope(name, 'assert_no_infs_or_nans', [tensor]):
+  with tf.name_scope(name):
     tensor = tf.convert_to_tensor(value=tensor)
 
     assert_ops = (tf.debugging.check_numerics(
@@ -60,7 +60,11 @@ def assert_no_infs_or_nans(tensor, name=None):
       return tf.identity(tensor)
 
 
-def assert_all_above(vector, minval, open_bound=False, name=None):
+def assert_all_above(
+    vector: type_alias.TensorLike,
+    minval: type_alias.TensorLike,
+    open_bound: bool = False,
+    name: str = 'assert_all_above') -> tf.Tensor:
   """Checks whether all values of vector are above minval.
 
   Note:
@@ -83,19 +87,23 @@ def assert_all_above(vector, minval, open_bound=False, name=None):
   if not FLAGS[tfg_flags.TFG_ADD_ASSERTS_TO_GRAPH].value:
     return vector
 
-  with tf.compat.v1.name_scope(name, 'assert_all_above', [vector, minval]):
+  with tf.name_scope(name):
     vector = tf.convert_to_tensor(value=vector)
     minval = tf.convert_to_tensor(value=minval, dtype=vector.dtype)
 
     if open_bound:
-      assert_ops = (tf.compat.v1.assert_greater(vector, minval),)
+      assert_ops = (tf.debugging.assert_greater(vector, minval),)
     else:
-      assert_ops = (tf.compat.v1.assert_greater_equal(vector, minval),)
+      assert_ops = (tf.debugging.assert_greater_equal(vector, minval),)
     with tf.control_dependencies(assert_ops):
       return tf.identity(vector)
 
 
-def assert_all_below(vector, maxval, open_bound=False, name=None):
+def assert_all_below(
+    vector: type_alias.TensorLike,
+    maxval: type_alias.TensorLike,
+    open_bound: bool = False,
+    name: str = 'assert_all_below') -> tf.Tensor:
   """Checks whether all values of vector are below maxval.
 
   Note:
@@ -118,19 +126,24 @@ def assert_all_below(vector, maxval, open_bound=False, name=None):
   if not FLAGS[tfg_flags.TFG_ADD_ASSERTS_TO_GRAPH].value:
     return vector
 
-  with tf.compat.v1.name_scope(name, 'assert_all_below', [vector, maxval]):
+  with tf.name_scope(name):
     vector = tf.convert_to_tensor(value=vector)
     maxval = tf.convert_to_tensor(value=maxval, dtype=vector.dtype)
 
     if open_bound:
-      assert_ops = (tf.compat.v1.assert_less(vector, maxval),)
+      assert_ops = (tf.debugging.assert_less(vector, maxval),)
     else:
-      assert_ops = (tf.compat.v1.assert_less_equal(vector, maxval),)
+      assert_ops = (tf.debugging.assert_less_equal(vector, maxval),)
     with tf.control_dependencies(assert_ops):
       return tf.identity(vector)
 
 
-def assert_all_in_range(vector, minval, maxval, open_bounds=False, name=None):
+def assert_all_in_range(
+    vector: type_alias.TensorLike,
+    minval: type_alias.TensorLike,
+    maxval: type_alias.TensorLike,
+    open_bounds: bool = False,
+    name: str = 'assert_all_in_range') -> tf.Tensor:
   """Checks whether all values of vector are between minval and maxval.
 
   This function checks if all the values in the given vector are in an interval
@@ -159,23 +172,25 @@ def assert_all_in_range(vector, minval, maxval, open_bounds=False, name=None):
   if not FLAGS[tfg_flags.TFG_ADD_ASSERTS_TO_GRAPH].value:
     return vector
 
-  with tf.compat.v1.name_scope(name, 'assert_all_in_range',
-                               [vector, minval, maxval]):
+  with tf.name_scope(name):
     vector = tf.convert_to_tensor(value=vector)
     minval = tf.convert_to_tensor(value=minval, dtype=vector.dtype)
     maxval = tf.convert_to_tensor(value=maxval, dtype=vector.dtype)
 
     if open_bounds:
-      assert_ops = (tf.compat.v1.assert_less(vector, maxval),
-                    tf.compat.v1.assert_greater(vector, minval))
+      assert_ops = (tf.debugging.assert_less(vector, maxval),
+                    tf.debugging.assert_greater(vector, minval))
     else:
-      assert_ops = (tf.compat.v1.assert_less_equal(vector, maxval),
-                    tf.compat.v1.assert_greater_equal(vector, minval))
+      assert_ops = (tf.debugging.assert_less_equal(vector, maxval),
+                    tf.debugging.assert_greater_equal(vector, minval))
     with tf.control_dependencies(assert_ops):
       return tf.identity(vector)
 
 
-def assert_nonzero_norm(vector, eps=None, name=None):
+def assert_nonzero_norm(
+    vector: type_alias.TensorLike,
+    eps: Optional[type_alias.Float] = None,
+    name: str = 'assert_nonzero_norm') -> tf.Tensor:
   """Checks whether vector/quaternion has non-zero norm in its last dimension.
 
   This function checks whether all the norms of the vectors are greater than
@@ -203,18 +218,23 @@ def assert_nonzero_norm(vector, eps=None, name=None):
   if not FLAGS[tfg_flags.TFG_ADD_ASSERTS_TO_GRAPH].value:
     return vector
 
-  with tf.compat.v1.name_scope(name, 'assert_nonzero_norm', [vector, eps]):
+  with tf.name_scope(name):
     vector = tf.convert_to_tensor(value=vector)
     if eps is None:
       eps = select_eps_for_division(vector.dtype)
     eps = tf.convert_to_tensor(value=eps, dtype=vector.dtype)
 
     norm = tf.norm(tensor=vector, axis=-1)
-    with tf.control_dependencies([tf.compat.v1.assert_greater(norm, eps)]):
+    with tf.control_dependencies([tf.debugging.assert_greater(norm, eps)]):
       return tf.identity(vector)
 
 
-def assert_normalized(vector, axis=-1, eps=None, name=None):
+def assert_normalized(
+    vector: type_alias.TensorLike,
+    order: str = 'euclidean',
+    axis: int = -1,
+    eps: Optional[type_alias.Float] = None,
+    name: str = 'assert_normalized') -> tf.Tensor:
   """Checks whether vector/quaternion is normalized in its last dimension.
 
   Note:
@@ -223,6 +243,7 @@ def assert_normalized(vector, axis=-1, eps=None, name=None):
   Args:
     vector: A tensor of shape `[A1, ..., M, ..., An]`, where the axis of M
       contains the vectors.
+    order: Order of the norm passed to tf.norm.
     axis: The axis containing the vectors.
     eps: A `float` describing the tolerance used to determine if the norm is
       equal to `1.0`.
@@ -237,20 +258,23 @@ def assert_normalized(vector, axis=-1, eps=None, name=None):
   if not FLAGS[tfg_flags.TFG_ADD_ASSERTS_TO_GRAPH].value:
     return vector
 
-  with tf.compat.v1.name_scope(name, 'assert_normalized', [vector]):
+  with tf.name_scope(name):
     vector = tf.convert_to_tensor(value=vector)
     if eps is None:
       eps = select_eps_for_division(vector.dtype)
     eps = tf.convert_to_tensor(value=eps, dtype=vector.dtype)
 
-    norm = tf.norm(tensor=vector, axis=axis)
+    norm = tf.norm(tensor=vector, ord=order, axis=axis)
     one = tf.constant(1.0, dtype=norm.dtype)
     with tf.control_dependencies(
-        [tf.compat.v1.assert_near(norm, one, atol=eps)]):
+        [tf.debugging.assert_near(norm, one, atol=eps)]):
       return tf.identity(vector)
 
 
-def assert_at_least_k_non_zero_entries(tensor, k=1, name=None):
+def assert_at_least_k_non_zero_entries(
+    tensor: type_alias.TensorLike,
+    k: int = 1,
+    name: str = 'assert_at_least_k_non_zero_entries') -> tf.Tensor:
   """Checks if `tensor` has at least k non-zero entries in the last dimension.
 
   Given a tensor with `M` dimensions in its last axis, this function checks
@@ -274,19 +298,48 @@ def assert_at_least_k_non_zero_entries(tensor, k=1, name=None):
   if not FLAGS[tfg_flags.TFG_ADD_ASSERTS_TO_GRAPH].value:
     return tensor
 
-  with tf.compat.v1.name_scope(name, 'assert_at_least_k_non_zero_entries',
-                               [tensor, k]):
+  with tf.name_scope(name):
     tensor = tf.convert_to_tensor(value=tensor)
 
     indicator = tf.cast(tf.math.greater(tensor, 0.0), dtype=tensor.dtype)
     indicator_sum = tf.reduce_sum(input_tensor=indicator, axis=-1)
-    assert_op = tf.compat.v1.assert_greater_equal(
+    assert_op = tf.debugging.assert_greater_equal(
         indicator_sum, tf.cast(k, dtype=tensor.dtype))
     with tf.control_dependencies([assert_op]):
       return tf.identity(tensor)
 
 
-def select_eps_for_addition(dtype):
+def assert_binary(
+    tensor: type_alias.TensorLike,
+    name: str = 'assert_binary') -> tf.Tensor:
+  """Asserts that all the values in the tensor are zeros or ones.
+
+  Args:
+    tensor: A tensor of shape `[A1, ..., An]` containing the values we want to
+      check.
+    name: A name for this op. Defaults to 'assert_binary'.
+
+  Returns:
+    The input tensor, with dependence on the assertion operator in the graph.
+
+  Raises:
+    tf.errors.InvalidArgumentError: If any of the values in the tensor is not
+    zero or one.
+  """
+  if not FLAGS[tfg_flags.TFG_ADD_ASSERTS_TO_GRAPH].value:
+    return tensor
+
+  with tf.name_scope(name):
+    tensor = tf.convert_to_tensor(value=tensor)
+    condition = tf.reduce_all(
+        input_tensor=tf.logical_or(tf.equal(tensor, 0), tf.equal(tensor, 1)))
+
+    with tf.control_dependencies(
+        [tf.debugging.Assert(condition, data=[tensor])]):
+      return tf.identity(tensor)
+
+
+def select_eps_for_addition(dtype: tf.DType) -> type_alias.Float:
   """Returns 2 * machine epsilon based on `dtype`.
 
   This function picks an epsilon slightly greater than the machine epsilon,
@@ -302,10 +355,10 @@ def select_eps_for_addition(dtype):
   Returns:
     A `float` to be used to make operations safe.
   """
-  return 2.0 * np.finfo(dtype.as_numpy_dtype()).eps
+  return 2.0 * np.finfo(dtype.as_numpy_dtype).eps
 
 
-def select_eps_for_division(dtype):
+def select_eps_for_division(dtype: tf.DType) -> type_alias.Float:
   """Selects default values for epsilon to make divisions safe based on dtype.
 
   This function returns an epsilon slightly greater than the smallest positive
@@ -323,7 +376,7 @@ def select_eps_for_division(dtype):
   Returns:
     A `float` to be used to make operations safe.
   """
-  return 10.0 * np.finfo(dtype.as_numpy_dtype()).tiny
+  return 10.0 * np.finfo(dtype.as_numpy_dtype).tiny
 
 
 # The util functions or classes are not exported.

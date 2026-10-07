@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for slerp."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 from absl.testing import parameterized
 import numpy as np
@@ -131,7 +127,7 @@ class SlerpTest(test_case.TestCase):
   @parameterized.parameters(
       ((4,), (4,), (1,)),
       ((None, 4), (None, 4), (None, 1)),
-      ((None, 4), (None, 4), (None, 4)),
+      ((5, 1, 4), (5, 1, 4), (3, 1)),
   )
   def test_quaternion_weights_exception_not_raised(self, *shapes):
     """Tests that valid input shapes do not raise exceptions for qslerp."""
@@ -144,6 +140,8 @@ class SlerpTest(test_case.TestCase):
        (1,)),
       ("Not all batch dimensions are broadcast-compatible.", (1, 4), (3, 4),
        (2,)),
+      ("Not all batch dimensions are broadcast-compatible.", (5, 1, 4),
+       (5, 1, 4), (3,)),
   )
   def test_quaternion_weights_exception_raised(self, error_msg, *shapes):
     """Tests that the shape exceptions are properly raised for qslerp."""

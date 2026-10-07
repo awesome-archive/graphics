@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for math_helpers."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import sys
 
@@ -67,11 +63,35 @@ class MathTest(test_case.TestCase):
     tensor_size = np.random.randint(3)
     tensor_shape = np.random.randint(1, 10, size=(tensor_size)).tolist()
     point_init = np.random.uniform(-10.0, 10.0, size=tensor_shape + [3])
-    point = tf.convert_to_tensor(value=point_init)
 
-    y = math_helpers.cartesian_to_spherical_coordinates(point)
+    self.assert_jacobian_is_correct_fn(
+        math_helpers.cartesian_to_spherical_coordinates, [point_init])
 
-    self.assert_jacobian_is_correct(point, point_init, y)
+  @parameterized.parameters(
+      (((1.0, 1.0, 1.0),),),
+      (((1.0, 0.0, 0.0),),),
+      (((0.0, 1.0, 0.0),),),
+  )
+  def test_cartesian_to_spherical_coordinates_jacobian_preset(self, cartesian):
+    """Test the Jacobian of the spherical_to_cartesian_coordinates function."""
+    point_init = np.asarray(cartesian)
+
+    self.assert_jacobian_is_correct_fn(
+        math_helpers.cartesian_to_spherical_coordinates, [point_init])
+
+  @parameterized.parameters(
+      (((1.0, 1.0, 0.0),), ((np.sqrt(2.0), np.pi / 2.0, np.pi / 4.0),)),
+      (((1.0, 0.0, 0.0),), ((1.0, np.pi / 2.0, 0.0),)),
+      (((0.0, 1.0, 0.0),), ((1.0, np.pi / 2.0, np.pi / 2.0),)),
+      (((0.0, 0.0, 1.0),), ((1.0, 0.0, 0.0),)),
+      (((0.0, 0.0, 0.0),), ((0.0, np.pi / 2.0, 0.0),)),
+  )
+  def test_cartesian_to_spherical_coordinates_values_preset(
+      self, test_inputs, test_outputs):
+    """Test the Jacobian of the spherical_to_cartesian_coordinates function."""
+    self.assert_output_is_correct(
+        math_helpers.cartesian_to_spherical_coordinates, test_inputs,
+        test_outputs)
 
   @parameterized.parameters(
       (((0, 1, 5, 6, 15.0),), ((1, 1, 15, 48, 2027025.0),)),)
@@ -124,16 +144,10 @@ class MathTest(test_case.TestCase):
     theta_init = np.random.uniform(
         -np.pi / 2.0, np.pi / 2.0, size=tensor_shape + [1])
     phi_init = np.random.uniform(-np.pi, np.pi, size=tensor_shape + [1])
-    r = tf.convert_to_tensor(value=r_init)
-    theta = tf.convert_to_tensor(value=theta_init)
-    phi = tf.convert_to_tensor(value=phi_init)
-    data = tf.stack((r, theta, phi), axis=-1)
+    data_init = np.stack((r_init, theta_init, phi_init), axis=-1)
 
-    y = math_helpers.spherical_to_cartesian_coordinates(data)
-
-    self.assert_jacobian_is_correct(r, r_init, y)
-    self.assert_jacobian_is_correct(theta, theta_init, y)
-    self.assert_jacobian_is_correct(phi, phi_init, y)
+    self.assert_jacobian_is_correct_fn(
+        math_helpers.spherical_to_cartesian_coordinates, [data_init])
 
   @parameterized.parameters(
       (((0.0, 0.0),), ((1.0, 0.0, 0.0),)),
@@ -151,11 +165,10 @@ class MathTest(test_case.TestCase):
     """Tests the Jacobian of square_to_spherical_coordinates."""
     epsilon = 1e-3
     point_2d_init = np.random.uniform(epsilon, 1.0 - epsilon, size=(10, 2))
-    point_2d = tf.convert_to_tensor(value=point_2d_init, dtype=tf.float64)
 
-    y = math_helpers.square_to_spherical_coordinates(point_2d)
-
-    self.assert_jacobian_is_correct(point_2d, point_2d_init, y, atol=1e-3)
+    self.assert_jacobian_is_correct_fn(
+        math_helpers.square_to_spherical_coordinates, [point_2d_init],
+        atol=1e-3)
 
   def test_square_to_spherical_coordinates_range_exception_raised(self):
     """Tests that the exceptions are raised correctly."""

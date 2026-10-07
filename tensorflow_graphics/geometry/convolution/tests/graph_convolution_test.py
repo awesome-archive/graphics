@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import itertools
 
 from absl.testing import parameterized
 import numpy as np
+from six.moves import range
 import tensorflow as tf
 
 import tensorflow_graphics.geometry.convolution.graph_convolution as gc
@@ -139,7 +140,7 @@ class GraphConvolutionTestFeatureSteeredConvolutionTests(test_case.TestCase):
     data, neighbors, sizes = _random_data(1, 5, 3, True, False, data_type,
                                           neighbors_type, sizes_type)
     u, v, c, w, b = _random_variables(3, 3, 1, var_type)
-    with self.assertRaisesRegexp(TypeError, err_msg):
+    with self.assertRaisesRegex(TypeError, err_msg):
       _ = gc.feature_steered_convolution(
           data=data,
           neighbors=neighbors,
@@ -177,7 +178,7 @@ class GraphConvolutionTestFeatureSteeredConvolutionTests(test_case.TestCase):
 
   def test_feature_steered_convolution_exception_raised_shapes(self):
     """Check that invalid input shapes trigger the right exceptions."""
-    with self.assertRaisesRegexp(ValueError, "must have a rank of 2"):
+    with self.assertRaisesRegex(ValueError, "must have a rank of 2"):
       data, neighbors = _dummy_data(1, 5, 2)
       u, v, c, w, b = _dummy_variables(2, 2, 1)
       data = data[0, :]
@@ -191,7 +192,7 @@ class GraphConvolutionTestFeatureSteeredConvolutionTests(test_case.TestCase):
           var_w=w,
           var_b=b)
 
-    with self.assertRaisesRegexp(ValueError, "must have a rank greater than 1"):
+    with self.assertRaisesRegex(ValueError, "must have a rank greater than 1"):
       u, v, c, w, b = _dummy_variables(2, 2, 1)
       data = np.ones(shape=(5), dtype=np.float32)
       neighbors = _dense_to_sparse(np.ones(shape=(5), dtype=np.float32))
@@ -205,8 +206,9 @@ class GraphConvolutionTestFeatureSteeredConvolutionTests(test_case.TestCase):
           var_w=w,
           var_b=b)
 
-    with self.assertRaisesRegexp(ValueError,
-                                 "Not all batch dimensions are identical."):
+    with self.assertRaisesRegex(
+        ValueError, "Not all batch dimensions are identical."
+    ):
       data, neighbors = _dummy_data(1, 5, 2)
       u, v, c, w, b = _dummy_variables(2, 2, 1)
       _ = gc.feature_steered_convolution(
@@ -445,19 +447,19 @@ class GraphConvolutionTestFeatureSteeredConvolutionTests(test_case.TestCase):
     sizes = None if not padding else random_data[2]
     u, v, c, w, b = _random_variables(
         in_channels, in_channels, num_weight_matrices, dtype=np.float64)
-    data = tf.convert_to_tensor(value=data_init)
 
-    y = gc.feature_steered_convolution(
-        data=data,
-        neighbors=neighbors,
-        sizes=sizes,
-        var_u=u,
-        var_v=v,
-        var_c=c,
-        var_w=w,
-        var_b=b)
+    def feature_steered_convolution(data):
+      return gc.feature_steered_convolution(
+          data=data,
+          neighbors=neighbors,
+          sizes=sizes,
+          var_u=u,
+          var_v=v,
+          var_c=c,
+          var_w=w,
+          var_b=b)
 
-    self.assert_jacobian_is_correct(data, data_init, y)
+    self.assert_jacobian_is_correct_fn(feature_steered_convolution, [data_init])
 
   @parameterized.parameters(
       (1, 1, 0.0),
@@ -479,24 +481,24 @@ class GraphConvolutionTestFeatureSteeredConvolutionTests(test_case.TestCase):
     neighbors = tf.sparse.eye(num_vertices, dtype=tf.float64)
     u, v, c, w, b = _random_variables(
         num_channels, num_channels, 1, dtype=np.float64)
-    data = tf.convert_to_tensor(value=data_init)
 
-    y = gc.feature_steered_convolution(
-        data=data,
-        neighbors=neighbors,
-        sizes=None,
-        var_u=u,
-        var_v=v,
-        var_c=c,
-        var_w=w,
-        var_b=b)
+    def feature_steered_convolution(data):
+      return gc.feature_steered_convolution(
+          data=data,
+          neighbors=neighbors,
+          sizes=None,
+          var_u=u,
+          var_v=v,
+          var_c=c,
+          var_w=w,
+          var_b=b)
 
-    self.assert_jacobian_is_correct(data, data_init, y)
+    self.assert_jacobian_is_correct_fn(feature_steered_convolution, [data_init])
 
 
 class EdgeConvolutionTemplateTests(test_case.TestCase):
 
-  def _zeros(self, vertex_features, neighbor_features, out_dimensions=None):
+  def _zeros(self, vertex_features, _, out_dimensions=None):
     """A callable for `edge_convolution_template`."""
     if out_dimensions is None:
       return tf.zeros_like(vertex_features)
@@ -505,7 +507,7 @@ class EdgeConvolutionTemplateTests(test_case.TestCase):
           shape=(vertex_features.shape.as_list()[0], out_dimensions),
           dtype=vertex_features.dtype)
 
-  def _pass_through(self, vertex_features, neighbor_features):
+  def _pass_through(self, _, neighbor_features):
     """A callable for `edge_convolution_template`."""
     return neighbor_features
 
@@ -552,7 +554,7 @@ class EdgeConvolutionTemplateTests(test_case.TestCase):
     """Check the type errors for invalid input types."""
     data, neighbors, sizes = _random_data(1, 5, 3, True, False, data_type,
                                           neighbors_type, sizes_type)
-    with self.assertRaisesRegexp(TypeError, err_msg):
+    with self.assertRaisesRegex(TypeError, err_msg):
       gc.edge_convolution_template(
           data=data,
           neighbors=neighbors,
@@ -589,7 +591,7 @@ class EdgeConvolutionTemplateTests(test_case.TestCase):
 
   def test_edge_convolution_template_exception_raised_shapes(self):
     """Check that invalid input shapes trigger the right exceptions."""
-    with self.assertRaisesRegexp(ValueError, "must have a rank of 2"):
+    with self.assertRaisesRegex(ValueError, "must have a rank of 2"):
       data, neighbors = _dummy_data(1, 5, 2)
       data = data[0, :]
       _ = gc.edge_convolution_template(
@@ -600,7 +602,7 @@ class EdgeConvolutionTemplateTests(test_case.TestCase):
           reduction="weighted",
           edge_function_kwargs=dict())
 
-    with self.assertRaisesRegexp(ValueError, "must have a rank greater than 1"):
+    with self.assertRaisesRegex(ValueError, "must have a rank greater than 1"):
       data = np.ones(shape=(5), dtype=np.float32)
       neighbors = _dense_to_sparse(np.ones(shape=(5), dtype=np.float32))
       _ = gc.edge_convolution_template(
@@ -611,7 +613,7 @@ class EdgeConvolutionTemplateTests(test_case.TestCase):
           reduction="weighted",
           edge_function_kwargs=dict())
 
-    with self.assertRaisesRegexp(ValueError, "must have a rank of 1"):
+    with self.assertRaisesRegex(ValueError, "must have a rank of 1"):
       data, neighbors = _dummy_data(1, 5, 2)
       _ = gc.edge_convolution_template(
           data=data,
@@ -622,10 +624,10 @@ class EdgeConvolutionTemplateTests(test_case.TestCase):
           edge_function_kwargs=dict())
 
   @parameterized.parameters("", "invalid")
-  def test_edge_convolution_template_exception_raised_reduction(self,
-                                                                reduction):
+  def test_edge_convolution_template_exception_raised_reduction(
+      self, reduction):
     """Check that an invalid reduction method triggers the exception."""
-    with self.assertRaisesRegexp(ValueError, "reduction method"):
+    with self.assertRaisesRegex(ValueError, "reduction method"):
       data, neighbors = _dummy_data(1, 5, 2)
       gc.edge_convolution_template(
           data=data,
@@ -643,8 +645,7 @@ class EdgeConvolutionTemplateTests(test_case.TestCase):
   )
   def test_edge_convolution_template_output_shape(self, batch_size,
                                                   num_vertices, in_channels,
-                                                  out_channels,
-                                                  reduction):
+                                                  out_channels, reduction):
     """Check that the output of convolution has the correct shape."""
     data, neighbors = _dummy_data(batch_size, num_vertices, in_channels)
 
@@ -662,6 +663,55 @@ class EdgeConvolutionTemplateTests(test_case.TestCase):
 
     with self.subTest(name="shape"):
       self.assertAllEqual(y_shape[:-1], data.shape[:-1])
+
+  def test_edge_convolution_template_zero_neighbors(self):
+    """Check that vertices with no neighbors map to zeros in the output."""
+    # We can reuse `self._edge_curvature_2d` as the curvature functional.
+    num_vertices = 500
+    data, neighbors = self._circular_2d_data(num_vertices, include_normals=True)
+
+    # Interleave the data with rows filled with random data, these rows will
+    # have no neighbors in the adjacency matrix so should map to all zeros in
+    # the output.
+    rows_odd = tf.expand_dims(
+        tf.range(start=1, limit=(2 * num_vertices), delta=2), -1)
+    rows_even = tf.expand_dims(
+        tf.range(start=0, limit=(2 * num_vertices + 1), delta=2), -1)
+    data_interleaved = tf.scatter_nd(
+        indices=rows_odd,
+        updates=data,
+        shape=(2 * num_vertices + 1, tf.shape(input=data)[-1]))
+    random_data = tf.random.uniform(
+        shape=(data.shape[0] + 1, data.shape[-1]), dtype=data.dtype)
+    random_interleaved = tf.scatter_nd(
+        indices=rows_even,
+        updates=random_data,
+        shape=(2 * num_vertices + 1, tf.shape(input=data)[-1]))
+    data_interleaved = data_interleaved + random_interleaved
+    neighbors_interleaved_indices = neighbors.indices * 2 + 1
+    neighbors_interleaved = tf.SparseTensor(
+        indices=neighbors_interleaved_indices,
+        values=neighbors.values,
+        dense_shape=(2 * num_vertices + 1, 2 * num_vertices + 1))
+
+    # Convolve the interleaved data.
+    data_curvature = gc.edge_convolution_template(
+        data=data_interleaved,
+        neighbors=neighbors_interleaved,
+        sizes=None,
+        edge_function=self._edge_curvature_2d,
+        reduction="weighted",
+        edge_function_kwargs=dict())
+
+    self.assertEqual(data_curvature.shape, (2 * num_vertices + 1, 1))
+
+    # The rows corresponding to the original input data measure the curvature.
+    # The curvature at any point on a circle of radius 1 should be 1.
+    # The interleaved rows of random data should map to zeros in the output.
+    self.assertAllClose(data_curvature[1::2, :],
+                        np.ones(shape=(num_vertices, 1)))
+    self.assertAllClose(data_curvature[::2, :],
+                        np.zeros(shape=(num_vertices + 1, 1)))
 
   @parameterized.parameters(
       (1, 10, 3, True, "weighted"),
@@ -686,17 +736,17 @@ class EdgeConvolutionTemplateTests(test_case.TestCase):
     data_init = random_data[0]
     neighbors = random_data[1]
     sizes = None if not padding else random_data[2]
-    data = tf.convert_to_tensor(value=data_init)
 
-    y = gc.edge_convolution_template(
-        data=data,
-        neighbors=neighbors,
-        sizes=sizes,
-        edge_function=self._pass_through,
-        reduction=reduction,
-        edge_function_kwargs=dict())
+    def edge_convolution_template(data):
+      return gc.edge_convolution_template(
+          data=data,
+          neighbors=neighbors,
+          sizes=sizes,
+          edge_function=self._pass_through,
+          reduction=reduction,
+          edge_function_kwargs=dict())
 
-    self.assert_jacobian_is_correct(data, data_init, y)
+    self.assert_jacobian_is_correct_fn(edge_convolution_template, [data_init])
 
   def test_edge_convolution_template_preset_max(self):
     data = np.array(((1, 2), (3, 4), (5, 6), (7, 8)), np.float32)
@@ -730,8 +780,7 @@ class EdgeConvolutionTemplateTests(test_case.TestCase):
       self.assertAllEqual(max_sum_scaled, true)
 
   @parameterized.parameters(
-      itertools.product((1, 5), (1, 3), (0.0, 1.0), ("weighted", "max"))
-  )
+      itertools.product((1, 5), (1, 3), (0.0, 1.0), ("weighted", "max")))
   def test_edge_convolution_template_jacobian_preset(self, num_vertices,
                                                      num_channels,
                                                      data_multiplier,
@@ -741,17 +790,17 @@ class EdgeConvolutionTemplateTests(test_case.TestCase):
     data_init = data_multiplier * np.random.uniform(
         size=(num_vertices, num_channels)).astype(np.float64)
     neighbors = tf.sparse.eye(num_vertices, dtype=tf.float64)
-    data = tf.convert_to_tensor(value=data_init)
 
-    y = gc.edge_convolution_template(
-        data=data,
-        neighbors=neighbors,
-        sizes=None,
-        edge_function=self._pass_through,
-        reduction=reduction,
-        edge_function_kwargs=dict())
+    def edge_convolution_template(data):
+      return gc.edge_convolution_template(
+          data=data,
+          neighbors=neighbors,
+          sizes=None,
+          edge_function=self._pass_through,
+          reduction=reduction,
+          edge_function_kwargs=dict())
 
-    self.assert_jacobian_is_correct(data, data_init, y)
+    self.assert_jacobian_is_correct_fn(edge_convolution_template, [data_init])
 
   def test_edge_convolution_template_laplacian_smoothing(self):
     r"""Test the expected result with laplacian smoothing.

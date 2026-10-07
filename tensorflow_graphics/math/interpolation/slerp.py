@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,13 +39,15 @@ from __future__ import division
 from __future__ import print_function
 
 import enum
-import tensorflow as tf
+from typing import Optional, Tuple, Union
 
+import tensorflow as tf
 from tensorflow_graphics.math import vector
 from tensorflow_graphics.util import asserts
 from tensorflow_graphics.util import export_api
 from tensorflow_graphics.util import safe_ops
 from tensorflow_graphics.util import shape
+from tensorflow_graphics.util import type_alias
 
 
 class InterpolationType(enum.Enum):
@@ -54,7 +56,9 @@ class InterpolationType(enum.Enum):
   QUATERNION = 1
 
 
-def _safe_dot(vector1, vector2, eps):
+def _safe_dot(vector1: type_alias.TensorLike,
+              vector2: type_alias.TensorLike,
+              eps: type_alias.Float) -> type_alias.Float:
   """Calculates dot product while ensuring it is in the range [-1, 1]."""
   dot_product = vector.dot(vector1, vector2)
   # Safely shrink to make sure machine precision does not cause the dot
@@ -63,12 +67,12 @@ def _safe_dot(vector1, vector2, eps):
       vector=dot_product, minval=-1.0, maxval=1.0, open_bounds=False, eps=eps)
 
 
-def interpolate(vector1,
-                vector2,
-                percent,
-                method=InterpolationType.QUATERNION,
-                eps=None,
-                name=None):
+def interpolate(vector1: type_alias.TensorLike,
+                vector2: type_alias.TensorLike,
+                percent: type_alias.Float,
+                method: InterpolationType = InterpolationType.QUATERNION,
+                eps: Optional[type_alias.Float] = None,
+                name: Optional[str] = None) -> tf.Tensor:
   """Applies slerp to vectors or quaternions.
 
   Args:
@@ -95,9 +99,13 @@ def interpolate(vector1,
       InterpolationType.
   """
   if method == InterpolationType.QUATERNION:
+    if name is None:
+      name = "quaternion_weights"
     weight1, weight2 = quaternion_weights(
         vector1, vector2, percent, eps=eps, name=name)
   elif method == InterpolationType.VECTOR:
+    if name is None:
+      name = "vector_weights"
     weight1, weight2 = vector_weights(
         vector1, vector2, percent, eps=eps, name=name)
   else:
@@ -105,7 +113,12 @@ def interpolate(vector1,
   return interpolate_with_weights(vector1, vector2, weight1, weight2)
 
 
-def interpolate_with_weights(vector1, vector2, weight1, weight2, name=None):
+def interpolate_with_weights(
+    vector1: type_alias.TensorLike,
+    vector2: type_alias.TensorLike,
+    weight1: Union[type_alias.Float, type_alias.TensorLike],
+    weight2: Union[type_alias.Float, type_alias.TensorLike],
+    name: str = "interpolate_with_weights") -> tf.Tensor:
   """Interpolates vectors by taking their weighted sum.
 
   Interpolation for all variants of slerp is a simple weighted sum over inputs.
@@ -129,12 +142,16 @@ def interpolate_with_weights(vector1, vector2, weight1, weight2, name=None):
     A tensor of shape `[A1, ... , An, M]` containing the result of the
     interpolation.
   """
-  with tf.compat.v1.name_scope(name, "interpolate_with_weights",
-                               [vector1, vector2, weight1, weight2]):
+  with tf.name_scope(name):
     return weight1 * vector1 + weight2 * vector2
 
 
-def quaternion_weights(quaternion1, quaternion2, percent, eps=None, name=None):
+def quaternion_weights(
+    quaternion1: type_alias.TensorLike,
+    quaternion2: type_alias.TensorLike,
+    percent: Union[type_alias.Float, type_alias.TensorLike],
+    eps: Optional[type_alias.Float] = None,
+    name: str = "quaternion_weights") -> Tuple[tf.Tensor, tf.Tensor]:
   """Calculates slerp weights for two normalized quaternions.
 
   Given a percent and two normalized quaternions, this function returns the
@@ -153,8 +170,8 @@ def quaternion_weights(quaternion1, quaternion2, percent, eps=None, name=None):
       quaternions in its last dimension.
     quaternion2: A tensor of shape `[A1, ... , An, 4]` storing normalized
       quaternions in its last dimension.
-    percent: A `float` or a tensor with a shape broadcastable to the shape `[A1,
-      ... , An]`.
+    percent: A `float` or tensor with shape broadcastable to the shape of input
+      vectors.
     eps: A `float` used to make operations safe. When left as None, the function
       automatically picks the best epsilon based on the dtype and the operation.
     name: A name for this op. Defaults to "quaternion_weights".
@@ -168,8 +185,7 @@ def quaternion_weights(quaternion1, quaternion2, percent, eps=None, name=None):
     Two tensors of shape `[A1, ... , An, 1]` each, which are the two slerp
       weights for each quaternion.
   """
-  with tf.compat.v1.name_scope(name, "quaternion_weights",
-                               [quaternion1, quaternion2, percent]):
+  with tf.name_scope(name):
     quaternion1 = tf.convert_to_tensor(value=quaternion1)
     quaternion2 = tf.convert_to_tensor(value=quaternion2)
     percent = tf.convert_to_tensor(value=percent, dtype=quaternion1.dtype)
@@ -182,7 +198,7 @@ def quaternion_weights(quaternion1, quaternion2, percent, eps=None, name=None):
         tensor=quaternion2, tensor_name="quaternion2", has_dim_equals=(-1, 4))
     shape.compare_batch_dimensions(
         tensors=(quaternion1, quaternion2, percent),
-        last_axes=(-2, -2, -1),
+        last_axes=-1,
         broadcast_compatible=True,
         tensor_names=("quaternion1", "quaternion2", "percent"))
     quaternion1 = asserts.assert_normalized(quaternion1)
@@ -204,7 +220,11 @@ def quaternion_weights(quaternion1, quaternion2, percent, eps=None, name=None):
     return scale1, scale2
 
 
-def vector_weights(vector1, vector2, percent, eps=None, name=None):
+def vector_weights(vector1: type_alias.TensorLike,
+                   vector2: type_alias.TensorLike,
+                   percent: Union[type_alias.Float, type_alias.TensorLike],
+                   eps: Optional[type_alias.Float] = None,
+                   name: str = "vector_weights") -> Tuple[tf.Tensor, tf.Tensor]:
   """Spherical linear interpolation (slerp) between two unnormalized vectors.
 
   This function applies geometric slerp to unnormalized vectors by first
@@ -233,8 +253,7 @@ def vector_weights(vector1, vector2, percent, eps=None, name=None):
     Two tensors of shape `[A1, ... , An, 1]`, representing interpolation weights
     for each input vector.
   """
-  with tf.compat.v1.name_scope(name, "vector_weights",
-                               [vector1, vector2, percent]):
+  with tf.name_scope(name):
     vector1 = tf.convert_to_tensor(value=vector1)
     vector2 = tf.convert_to_tensor(value=vector2)
     percent = tf.convert_to_tensor(value=percent, dtype=vector1.dtype)
@@ -247,7 +266,7 @@ def vector_weights(vector1, vector2, percent, eps=None, name=None):
         tensor_names=("vector1", "vector2"))
     shape.compare_batch_dimensions(
         tensors=(vector1, vector2, percent),
-        last_axes=(-2, -2, -1),
+        last_axes=-1,
         broadcast_compatible=True,
         tensor_names=("vector1", "vector2", "percent"))
     normalized1 = tf.nn.l2_normalize(vector1, axis=-1)

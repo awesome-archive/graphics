@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,9 +22,13 @@ import tensorflow as tf
 from tensorflow_graphics.util import asserts
 from tensorflow_graphics.util import export_api
 from tensorflow_graphics.util import shape
+from tensorflow_graphics.util.type_alias import TensorLike
 
 
-def cross(vector1, vector2, axis=-1, name=None):
+def cross(vector1: TensorLike,
+          vector2: TensorLike,
+          axis: int = -1,
+          name: str = "vector_cross") -> TensorLike:
   """Computes the cross product between two tensors along an axis.
 
   Note:
@@ -43,7 +47,7 @@ def cross(vector1, vector2, axis=-1, name=None):
     A tensor of shape `[A1, ..., Ai = 3, ..., An]`, where the dimension i = axis
     represents the result of the cross product.
   """
-  with tf.compat.v1.name_scope(name, "vector_cross", [vector1, vector2]):
+  with tf.name_scope(name):  # pyrefly: ignore[bad-instantiation]
     vector1 = tf.convert_to_tensor(value=vector1)
     vector2 = tf.convert_to_tensor(value=vector2)
 
@@ -62,7 +66,11 @@ def cross(vector1, vector2, axis=-1, name=None):
     return tf.stack((n_x, n_y, n_z), axis=axis)
 
 
-def dot(vector1, vector2, axis=-1, keepdims=True, name=None):
+def dot(vector1: TensorLike,
+        vector2: TensorLike,
+        axis: int = -1,
+        keepdims: bool = True,
+        name: str = "vector_dot") -> TensorLike:
   """Computes the dot product between two tensors along an axis.
 
   Note:
@@ -82,7 +90,7 @@ def dot(vector1, vector2, axis=-1, keepdims=True, name=None):
     A tensor of shape `[A1, ..., Ai = 1, ..., An]`, where the dimension i = axis
     represents the result of the dot product.
   """
-  with tf.compat.v1.name_scope(name, "vector_dot", [vector1, vector2]):
+  with tf.name_scope(name):  # pyrefly: ignore[bad-instantiation]
     vector1 = tf.convert_to_tensor(value=vector1)
     vector2 = tf.convert_to_tensor(value=vector2)
 
@@ -97,7 +105,10 @@ def dot(vector1, vector2, axis=-1, keepdims=True, name=None):
         input_tensor=vector1 * vector2, axis=axis, keepdims=keepdims)
 
 
-def reflect(vector, normal, axis=-1, name=None):
+def reflect(vector: TensorLike,
+            normal: TensorLike,
+            axis: int = -1,
+            name: str = "vector_reflect") -> TensorLike:
   r"""Computes the reflection direction for an incident vector.
 
   For an incident vector \\(\mathbf{v}\\) and normal $$\mathbf{n}$$ this
@@ -121,7 +132,7 @@ def reflect(vector, normal, axis=-1, name=None):
     A tensor of shape `[A1, ..., Ai, ..., An]`, where the dimension i = axis
     represents a reflected vector.
   """
-  with tf.compat.v1.name_scope(name, "vector_reflect", [vector, normal]):
+  with tf.name_scope(name):  # pyrefly: ignore[bad-instantiation]
     vector = tf.convert_to_tensor(value=vector)
     normal = tf.convert_to_tensor(value=normal)
 

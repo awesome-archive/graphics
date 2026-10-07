@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,9 +22,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import warnings
+
 from absl import flags
 from absl.testing import parameterized
 import numpy as np
+from six.moves import zip  # pyrefly: ignore[missing-source-for-stubs]
 import tensorflow as tf
 
 from tensorflow_graphics.util import tfg_flags
@@ -32,10 +35,30 @@ from tensorflow_graphics.util import tfg_flags
 FLAGS = flags.FLAGS
 
 
+def _max_error(arrays1, arrays2):
+  """Computes maximum elementwise gap between two lists of ndarrays.
+
+  Computes the maximum elementwise gap between two lists with the same length,
+  of arrays with the same shape.
+
+  Args:
+    arrays1: a lists of np.ndarrays.
+    arrays2: a lists of np.ndarrays of the same shape as arrays1.
+
+  Returns:
+    The maximum elementwise absolute difference between the two lists of arrays.
+  """
+  error = 0
+  for array1, array2 in zip(arrays1, arrays2):
+    if array1.size or array2.size:  # Handle zero size ndarrays correctly
+      error = np.maximum(error, np.fabs(array1 - array2).max())
+  return error
+
+
 class TestCase(parameterized.TestCase, tf.test.TestCase):
   """Test case class implementing extra test functionalities."""
 
-  def setUp(self):
+  def setUp(self):  # pylint: disable=invalid-name
     """Sets the seed for tensorflow and numpy."""
     super(TestCase, self).setUp()
     try:
@@ -52,25 +75,24 @@ class TestCase(parameterized.TestCase, tf.test.TestCase):
         return None
     return shapes
 
-  def _compute_gradient_error(self, x, y, x_init_value, delta=1e-6):
+  def _compute_gradient_error(self, x, y, x_init, delta=1e-6):
     """Computes the gradient error.
 
     Args:
       x: a tensor or list of tensors.
       y: a tensor.
-      x_init_value: a numpy array of the same shape as "x" representing the
-        initial value of x.
+      x_init: a numpy array of the same shape as "x" representing the initial
+        value of x.
       delta: (optional) the amount of perturbation.
 
     Returns:
       A tuple (max_error, row, column), with max_error the maxium error between
       the two Jacobians, and row/column the position of said maximum error.
     """
-    x_shape = x.shape.as_list()
-    y_shape = y.shape.as_list()
-    with tf.compat.v1.Session():
-      grad = tf.compat.v1.test.compute_gradient(x, x_shape, y, y_shape,
-                                                x_init_value, delta)
+    with self.cached_session():
+      grad = tf.compat.v1.test.compute_gradient(x, x.shape.as_list(), y,
+                                                y.shape.as_list(), x_init,
+                                                delta)
       if isinstance(grad, tuple):
         grad = [grad]
       error = 0
@@ -82,9 +104,11 @@ class TestCase(parameterized.TestCase, tf.test.TestCase):
           max_error = np.maximum(error, diff.max())
           row_max_error, column_max_error = np.unravel_index(
               diff.argmax(), diff.shape)
-      return max_error, row_max_error, column_max_error
+      return max_error, row_max_error, column_max_error  # pyrefly: ignore[unbound-name]
 
-  def _create_placeholders_from_shapes(self, shapes, dtypes=None,
+  def _create_placeholders_from_shapes(self,
+                                       shapes,
+                                       dtypes=None,
                                        sparse_tensors=None):
     """Creates a list of placeholders based on a list of shapes.
 
@@ -189,11 +213,11 @@ class TestCase(parameterized.TestCase, tf.test.TestCase):
         return
     placeholders = self._create_placeholders_from_shapes(
         shapes=shapes, dtypes=dtypes, sparse_tensors=sparse_tensors)
-    with self.assertRaisesRegexp(ValueError, error_msg):
+    with self.assertRaisesRegex(ValueError, error_msg):
       func(*placeholders, **kwargs)
 
   def assert_jacobian_is_correct(self, x, x_init, y, atol=1e-6, delta=1e-6):
-    """Tests that the gradient error of y(x) is small.
+    """Tests that the gradient error of y=f(x) is small.
 
     Args:
       x: A tensor.
@@ -203,9 +227,31 @@ class TestCase(parameterized.TestCase, tf.test.TestCase):
       atol: Maximum absolute tolerance in gradient error.
       delta: The amount of perturbation.
     """
+    warnings.warn((
+        "assert_jacobian_is_correct is deprecated and might get "
+        "removed in a future version please use assert_jacobian_is_correct_fn"),
+                  DeprecationWarning)
     if tf.executing_eagerly():
-      return
+      self.skipTest(reason="Graph mode only test")
     max_error, _, _ = self._compute_gradient_error(x, y, x_init, delta)
+    self.assertLessEqual(max_error, atol)
+
+  def assert_jacobian_is_correct_fn(self, f, x, atol=1e-6, delta=1e-6):
+    """Tests that the gradient error of y=f(x) is small.
+
+    Args:
+      f: the function.
+      x: A list of arguments for the function
+      atol: Maximum absolute tolerance in gradient error.
+      delta: The amount of perturbation.
+    """
+    # pylint: disable=no-value-for-parameter
+    if tf.executing_eagerly():
+      max_error = _max_error(*tf.test.compute_gradient(f, x, delta))
+    else:
+      with self.cached_session():
+        max_error = _max_error(*tf.test.compute_gradient(f, x, delta))
+    # pylint: enable=no-value-for-parameter
     self.assertLessEqual(max_error, atol)
 
   def assert_jacobian_is_finite(self, x, x_init, y):
@@ -221,17 +267,42 @@ class TestCase(parameterized.TestCase, tf.test.TestCase):
         gradients of y.
       y: A tensor.
     """
+    warnings.warn(
+        ("assert_jacobian_is_finite is deprecated and might get "
+         "removed in a future version please use assert_jacobian_is_finite_fn"),
+        DeprecationWarning)
     if tf.executing_eagerly():
-      return
-    x_shape = x.shape.as_list()
-    y_shape = y.shape.as_list()
+      self.skipTest(reason="Graph mode only test")
     with tf.compat.v1.Session():
-      gradient = tf.compat.v1.test.compute_gradient(
-          x, x_shape, y, y_shape, x_init_value=x_init)
+      gradient = tf.compat.v1.test.compute_gradient(x, x.shape.as_list(), y,
+                                                    y.shape.as_list(), x_init)
       theoretical_gradient = gradient[0][0]
       self.assertFalse(
           np.isnan(theoretical_gradient).any() or
           np.isinf(theoretical_gradient).any())
+
+  def assert_jacobian_is_finite_fn(self, f, x):
+    """Tests that the Jacobian only contains valid values.
+
+    The analytical gradients and numerical ones are expected to differ at points
+    where f(x) is not smooth. This function can be used to check that the
+    analytical gradient is not 'NaN' nor 'Inf'.
+
+    Args:
+      f: the function.
+      x: A list of arguments for the function
+    """
+    if tf.executing_eagerly():
+      theoretical_gradient, _ = tf.test.compute_gradient(f, x)
+    else:
+      with self.cached_session():
+        theoretical_gradient, _ = tf.test.compute_gradient(f, x)
+    self.assertNotIn(
+        True, [
+            np.isnan(element).any() or np.isinf(element).any()
+            for element in theoretical_gradient
+        ],
+        msg="nan or inf elements found in theoretical jacobian.")
 
   def assert_output_is_correct(self,
                                func,
@@ -279,7 +350,7 @@ class TestCase(parameterized.TestCase, tf.test.TestCase):
     """
     if tf.executing_eagerly():
       # Currently TFLite conversion is not supported in eager mode.
-      return
+      self.skipTest(reason="Graph mode only test")
     # Generate graph with the function given as input.
     in_tensors = self._create_placeholders_from_shapes(shapes, dtypes)
     out_tensors = func(*in_tensors)
@@ -306,7 +377,7 @@ class TestCase(parameterized.TestCase, tf.test.TestCase):
               np.array(test, dtype=np.float32) for test in test_inputs
           ]
         # Evaluate function using TensorFlow.
-        feed_dict = dict(zip(in_tensors, test_inputs))
+        feed_dict = dict(list(zip(in_tensors, test_inputs)))
         test_outputs = sess.run(out_tensors, feed_dict)
         # Set tensors for the TFLite model.
         input_details = interpreter.get_input_details()

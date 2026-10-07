@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for lambertian reflectance."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import math
 import sys
@@ -42,17 +38,13 @@ class LambertianTest(test_case.TestCase):
         1.0, 1.0, size=tensor_shape + [3])
     surface_normal_init = np.random.uniform(1.0, 1.0, size=tensor_shape + [3])
     albedo_init = np.random.random(tensor_shape + [3])
-    direction_incoming_light = tf.convert_to_tensor(
-        value=direction_incoming_light_init)
-    direction_outgoing_light = tf.convert_to_tensor(
-        value=direction_outgoing_light_init)
-    surface_normal = tf.convert_to_tensor(value=surface_normal_init)
-    albedo = tf.convert_to_tensor(value=albedo_init)
 
-    y = lambertian.brdf(direction_incoming_light, direction_outgoing_light,
-                        surface_normal, albedo)
+    def lamertian_brdf_fn(albedo):
+      return lambertian.brdf(direction_incoming_light_init,
+                             direction_outgoing_light_init, surface_normal_init,
+                             albedo)
 
-    self.assert_jacobian_is_correct(albedo, albedo_init, y)
+    self.assert_jacobian_is_correct_fn(lamertian_brdf_fn, [albedo_init])
 
   @flagsaver.flagsaver(tfg_add_asserts_to_graph=False)
   def test_brdf_jacobian_preset(self):
@@ -60,17 +52,13 @@ class LambertianTest(test_case.TestCase):
     direction_outgoing_light_init = np.array((0.0, 1.0, 0.0))
     surface_normal_init = np.array((1.0, 0.0, 0.0))
     albedo_init = np.array((1.0, 1.0, 1.0))
-    direction_incoming_light = tf.convert_to_tensor(
-        value=direction_incoming_light_init)
-    direction_outgoing_light = tf.convert_to_tensor(
-        value=direction_outgoing_light_init)
-    surface_normal = tf.convert_to_tensor(value=surface_normal_init)
-    albedo = tf.convert_to_tensor(value=albedo_init)
 
-    y = lambertian.brdf(direction_incoming_light, direction_outgoing_light,
-                        surface_normal, albedo)
+    def lamertian_brdf_fn(albedo):
+      return lambertian.brdf(direction_incoming_light_init,
+                             direction_outgoing_light_init, surface_normal_init,
+                             albedo)
 
-    self.assert_jacobian_is_correct(albedo, albedo_init, y)
+    self.assert_jacobian_is_correct_fn(lamertian_brdf_fn, [albedo_init])
 
   @parameterized.parameters(
       (-1.0, 1.0, 1.0 / math.pi),

@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Module with test data for transformation tests."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import numpy as np
 
@@ -38,7 +34,7 @@ def _rotation_2d_x(angle):
   Returns:
     The 2d rotation matrix.
   """
-  angle = np.asscalar(angle)
+  angle = angle.item()
   return np.array(((np.cos(angle), -np.sin(angle)),
                    (np.sin(angle), np.cos(angle))))  # pyformat: disable
 
@@ -91,7 +87,7 @@ def _rotation_3d_x(angle):
   Returns:
     The 3d rotation matrix.
   """
-  angle = np.asscalar(angle)
+  angle = angle.item()
   return np.array(((1., 0., 0.),
                    (0., np.cos(angle), -np.sin(angle)),
                    (0., np.sin(angle), np.cos(angle))))  # pyformat: disable
@@ -106,7 +102,7 @@ def _rotation_3d_y(angle):
   Returns:
     The 3d rotation matrix.
   """
-  angle = np.asscalar(angle)
+  angle = angle.item()
   return np.array(((np.cos(angle), 0., np.sin(angle)),
                    (0., 1., 0.),
                    (-np.sin(angle), 0., np.cos(angle))))  # pyformat: disable
@@ -121,7 +117,7 @@ def _rotation_3d_z(angle):
   Returns:
     The 3d rotation matrix.
   """
-  angle = np.asscalar(angle)
+  angle = angle.item()
   return np.array(((np.cos(angle), -np.sin(angle), 0.),
                    (np.sin(angle), np.cos(angle), 0.),
                    (0., 0., 1.)))  # pyformat: disable

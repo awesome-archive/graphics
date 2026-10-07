@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ from __future__ import division
 from __future__ import print_function
 
 import inspect
+
+import six
 
 
 def get_functions_and_classes():
@@ -45,8 +47,8 @@ def get_modules():
   module = inspect.getmodule(caller[0])
   return [
       obj_name for obj_name, obj in inspect.getmembers(module)
-      if inspect.ismodule(obj) and obj.__name__.rsplit(".", 1)[0] ==
-      module.__name__ and not obj_name.startswith("_")
+      if inspect.ismodule(obj) and six.ensure_str(obj.__name__).rsplit(".", 1)
+      [0] == module.__name__ and not obj_name.startswith("_")  # pyrefly: ignore[missing-attribute]
   ]
 
 

@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,8 +30,8 @@ def feature_steered_convolution_layer(
     translation_invariant=True,
     num_weight_matrices=8,
     num_output_channels=None,
-    initializer=tf.compat.v1.truncated_normal_initializer(stddev=0.1),
-    name=None,
+    initializer=tf.keras.initializers.TruncatedNormal(stddev=0.1),
+    name='graph_convolution_feature_steered_convolution',
     var_name=None):
   # pyformat: disable
   """Wraps the function `feature_steered_convolution` as a TensorFlow layer.
@@ -91,7 +91,7 @@ def feature_steered_convolution_layer(
     # feature_steered_convolution().
     data = tf.convert_to_tensor(value=data)
 
-    in_channels = tf.compat.v1.dimension_value(data.shape[-1])
+    in_channels = tf.compat.dimension_value(data.shape[-1])
     if num_output_channels is None:
       out_channels = in_channels
     else:
@@ -159,7 +159,7 @@ class FeatureSteeredConvolutionKerasLayer(tf.keras.layers.Layer):
         in the output. If `None` then `num_output_channels` will be the same as
         the input dimensionality.
       initializer: An initializer for the trainable variables. If `None`,
-        defaults to `tf.compat.v1.truncated_normal_initializer(stddev=0.1)`.
+        defaults to `tf.keras.initializers.TruncatedNormal(stddev=0.1)`.
       name: A name for this layer.
       **kwargs: Additional keyword arguments passed to the base layer.
     """
@@ -169,7 +169,7 @@ class FeatureSteeredConvolutionKerasLayer(tf.keras.layers.Layer):
     self._num_output_channels = num_output_channels
     self._translation_invariant = translation_invariant
     if initializer is None:
-      self._initializer = tf.compat.v1.truncated_normal_initializer(stddev=0.1)
+      self._initializer = tf.keras.initializers.TruncatedNormal(stddev=0.1)
     else:
       self._initializer = initializer
 
@@ -215,7 +215,7 @@ class FeatureSteeredConvolutionKerasLayer(tf.keras.layers.Layer):
         name='b',
         trainable=True)
 
-  def call(self, inputs, sizes=None):
+  def call(self, inputs, **kwargs):
     # pyformat: disable
     """Executes the convolution.
 
@@ -240,23 +240,25 @@ class FeatureSteeredConvolutionKerasLayer(tf.keras.layers.Layer):
         neighbor of vertex `i`, and `neighbors[A1, ..., An, i, i] > 0` for all
         `i`, and `sum(neighbors, axis=-1)[A1, ..., An, i] == 1.0` for all `i`.
         These requirements are relaxed in this implementation.
-      sizes: An `int` tensor of shape `[A1, ..., An]` indicating the true input
-        sizes in case of padding (`sizes=None` indicates no padding).
-        `sizes[A1, ..., An] <= V`. If `data` and `neighbors` are 2-D, `sizes`
-        will be ignored. As an example usage of `sizes`, consider an input
-        consisting of three graphs `G0`, `G1`, and `G2` with `V0`, `V1`, and
-        `V2` vertices respectively. The padded input would have the shapes
-        `data.shape = [3, V, C]`, and `neighbors.shape = [3, V, V]`,
-        where `V = max([V0, V1, V2])`. The true sizes of each graph will be
-        specified by `sizes=[V0, V1, V2]`. `data[i, :Vi, :]` and
-        `neighbors[i, :Vi, :Vi]` will be the vertex and neighborhood data of
-        graph `Gi`. The `SparseTensor` `neighbors` should have no nonzero
-        entries in the padded regions.
+      **kwargs: A dictionary containing the key `sizes`, which is an `int` tensor
+        of shape `[A1, ..., An]` indicating the true input sizes in case of
+        padding (`sizes=None` indicates no padding). `sizes[A1, ..., An] <= V`.
+        If `data` and `neighbors` are 2-D, `sizes` will be ignored. As an
+        example usage of `sizes`, consider an input consisting of three graphs
+        `G0`, `G1`, and `G2` with `V0`, `V1`, and `V2` vertices respectively.
+        The padded input would have the shapes `data.shape = [3, V, C]`, and
+        `neighbors.shape = [3, V, V]`, where `V = max([V0, V1, V2])`. The true
+        sizes of each graph will be specified by `sizes=[V0, V1, V2]`.
+        `data[i, :Vi, :]` and `neighbors[i, :Vi, :Vi]` will be the vertex and
+        neighborhood data of graph `Gi`. The `SparseTensor` `neighbors` should
+        have no nonzero entries in the padded regions.
 
     Returns:
       Tensor with shape `[A1, ..., An, V, num_output_channels]`.
     """
+
     # pyformat: enable
+    sizes = kwargs.get('sizes', None)
     return gc.feature_steered_convolution(
         data=inputs[0],
         neighbors=inputs[1],
@@ -327,8 +329,7 @@ class DynamicGraphConvolutionKerasLayer(tf.keras.layers.Layer):
       name: A name for this layer.
       **kwargs: Additional keyword arguments passed to the base layer.
     """
-    super(DynamicGraphConvolutionKerasLayer, self).__init__(
-        name=name, **kwargs)
+    super(DynamicGraphConvolutionKerasLayer, self).__init__(name=name, **kwargs)
     self._num_output_channels = num_output_channels
     self._reduction = reduction
     self._activation = activation
@@ -341,7 +342,7 @@ class DynamicGraphConvolutionKerasLayer(tf.keras.layers.Layer):
     self._kernel_constraint = kernel_constraint
     self._bias_constraint = bias_constraint
 
-  def build(self, input_shape):
+  def build(self, input_shape):  # pylint: disable=unused-argument
     """Initializes the layer weights."""
     self._conv1d_layer = tf.keras.layers.Conv1D(
         filters=self._num_output_channels,
@@ -358,7 +359,7 @@ class DynamicGraphConvolutionKerasLayer(tf.keras.layers.Layer):
         kernel_constraint=self._kernel_constraint,
         bias_constraint=self._bias_constraint)
 
-  def call(self, inputs, sizes=None):
+  def call(self, inputs, **kwargs):
     # pyformat: disable
     """Executes the convolution.
 
@@ -381,8 +382,9 @@ class DynamicGraphConvolutionKerasLayer(tf.keras.layers.Layer):
         `sum(neighbors, axis=-1)[A1, ..., An, i] == 1.0` for all `i`, although
         this is not enforced in the implementation in case different neighbor
         weighting schemes are desired.
-      sizes: An `int` tensor of shape `[A1, ..., An]` indicating the true input
-        sizes in case of padding (`sizes=None` indicates no padding).
+      **kwargs: A dictionary containing the key `sizes`, which is an `int`
+        tensor of shape `[A1, ..., An]` indicating the true input sizes in case
+        of padding (`sizes=None` indicates no padding).
         `sizes[A1, ..., An] <= V`. If `data` and `neighbors` are 2-D, `sizes`
         will be ignored. As an example usage of `sizes`, consider an input
         consisting of three graphs `G0`, `G1`, and `G2` with `V0`, `V1`, and
@@ -419,17 +421,14 @@ class DynamicGraphConvolutionKerasLayer(tf.keras.layers.Layer):
       convolved_features = tf.squeeze(input=convolved_features, axis=(0,))
       return convolved_features
 
-    kwargs = {
-        'conv1d_layer': self._conv1d_layer
-    }
-
+    sizes = kwargs.get('sizes', None)
     return gc.edge_convolution_template(
         data=inputs[0],
         neighbors=inputs[1],
         sizes=sizes,
         edge_function=_edge_convolution,
         reduction=self._reduction,
-        edge_function_kwargs=kwargs)
+        edge_function_kwargs={'conv1d_layer': self._conv1d_layer})
 
 
 # API contains all public functions and classes.

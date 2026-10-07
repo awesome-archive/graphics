@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from absl.testing import parameterized
 import numpy as np
+from six.moves import range
 import tensorflow as tf
 
 from tensorflow_graphics.math.interpolation import weighted
@@ -79,7 +80,7 @@ class WeightedTest(test_case.TestCase):
         (3.0, -1.0)), ((0.25, 0.25, 0.25, 0.25), (0.5, 0.5, 0.0, 0.0)),
        (((0,), (1,), (3,), (4,)), ((1,), (2,), (4,),
                                    (5,))), False, ((0.0, 0.0), (2.0, 1.0))),)
-  def test_interpolate_preset(self, points, weights, indices, normalize, out):
+  def test_interpolate_preset(self, points, weights, indices, _, out):
     """Tests whether interpolation results are correct."""
     weights = tf.convert_to_tensor(value=weights)
 
@@ -117,8 +118,7 @@ class WeightedTest(test_case.TestCase):
         (3.0, -1.0)), ((1.0, -1.0, 1.0, -1.0), (0.0, 0.0, 0.0, 0.0)),
        (((0,), (1,), (3,), (4,)), ((1,), (2,), (4,), (5,))), ((0.0, 0.0),
                                                               (0.0, 0.0))))
-  def test_interpolate_unnormalizable_raised_(self, points, weights, indices,
-                                              out):
+  def test_interp_unnormalizable_raised_(self, points, weights, indices, _):
     """Tests whether exception is raised when weights are unnormalizable."""
     with self.assertRaises(tf.errors.InvalidArgumentError):
       result = weighted.interpolate(
@@ -140,18 +140,69 @@ class WeightedTest(test_case.TestCase):
     """Tests whether jacobian is correct."""
     points_np, weights_np, indices_np = self._get_tensors_from_shapes(
         num_points, dim_points, num_outputs, num_pts_to_interpolate)
-    points = tf.convert_to_tensor(value=points_np)
-    weights = tf.convert_to_tensor(value=weights_np)
-    indices = tf.convert_to_tensor(value=indices_np)
 
-    y = weighted.interpolate(
-        points=points, weights=weights, indices=indices, normalize=True)
+    def interpolate_fn(points, weights):
+      return weighted.interpolate(
+          points=points, weights=weights, indices=indices_np, normalize=True)
 
-    with self.subTest(name="points"):
-      self.assert_jacobian_is_correct(points, points_np, y)
+    self.assert_jacobian_is_correct_fn(interpolate_fn, [points_np, weights_np])
 
-    with self.subTest(name="weights"):
-      self.assert_jacobian_is_correct(weights, weights_np, y)
+  @parameterized.parameters(
+      ((3, 2), (2, 2)),
+      ((None, 3, 2), (None, 1, 2)),
+      ((10, 5, 3, 2), (10, 5, 2, 2)),
+  )
+  def test_get_barycentric_coordinates_exception_not_raised(self, *shapes):
+    """Tests that the shape exceptions are not raised."""
+    self.assert_exception_is_not_raised(weighted.get_barycentric_coordinates,
+                                        shapes)
+
+  @parameterized.parameters(
+      ("triangle_vertices must have exactly 2 dimensions in axis -1", (3, 1),
+       (1, 2)),
+      ("triangle_vertices must have exactly 3 dimensions in axis -2", (2, 2),
+       (1, 2)),
+      ("pixels must have exactly 2 dimensions in axis -1", (3, 2), (1, 3)),
+      ("Not all batch dimensions are broadcast-compatible", (5, 3, 2),
+       (2, 10, 2)),
+  )
+  def test_get_barycentric_coordinates_exception_raised(self, error_msg,
+                                                        *shape):
+    """Tests that the shape exceptions are raised."""
+    self.assert_exception_is_raised(weighted.get_barycentric_coordinates,
+                                    error_msg, shape)
+
+  def test_get_barycentric_coordinates_jacobian_random(self):
+    """Tests the Jacobian of get_barycentric_coordinates."""
+    tensor_size = np.random.randint(2)
+    tensor_shape = np.random.randint(1, 2, size=(tensor_size)).tolist()
+    triangle_vertices_init = 0.4 * np.random.random(
+        tensor_shape + [3, 2]).astype(np.float64) - 0.2
+    triangle_vertices_init += np.array(
+        ((0.25, 0.25), (0.5, 0.75), (0.75, 0.25)))
+    pixels_init = np.random.random(tensor_shape + [3, 2]).astype(np.float64)
+
+    barycentric_fn = weighted.get_barycentric_coordinates
+
+    self.assert_jacobian_is_correct_fn(
+        lambda vertices, pixels: barycentric_fn(vertices, pixels)[0],
+        [triangle_vertices_init, pixels_init])
+
+  def test_get_barycentric_coordinates_normalized(self):
+    """Tests whether the barycentric coordinates are normalized."""
+    tensor_size = np.random.randint(3)
+    tensor_shape = np.random.randint(1, 10, size=(tensor_size)).tolist()
+    num_pixels = np.random.randint(1, 10)
+    pixels_shape = tensor_shape + [num_pixels]
+    triangle_vertices = np.random.random(tensor_shape + [3, 2])
+    pixels = np.random.random(pixels_shape + [2])
+
+    barycentric_coordinates, _ = weighted.get_barycentric_coordinates(
+        triangle_vertices, pixels)
+    barycentric_coordinates_sum = tf.reduce_sum(
+        input_tensor=barycentric_coordinates, axis=-1)
+
+    self.assertAllClose(barycentric_coordinates_sum, np.full(pixels_shape, 1.0))
 
 
 if __name__ == "__main__":

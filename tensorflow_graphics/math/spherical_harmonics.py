@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from typing import Tuple
+
 import numpy as np
+from six.moves import range  # pyrefly: ignore[missing-source-for-stubs]
 import tensorflow as tf
 
 from tensorflow_graphics.math import math_helpers
@@ -25,9 +28,14 @@ from tensorflow_graphics.math import vector
 from tensorflow_graphics.util import asserts
 from tensorflow_graphics.util import export_api
 from tensorflow_graphics.util import shape
+from tensorflow_graphics.util.type_alias import TensorLike
 
 
-def integration_product(harmonics1, harmonics2, keepdims=True, name=None):
+def integration_product(
+    harmonics1: TensorLike,
+    harmonics2: TensorLike,
+    keepdims: bool = True,
+    name: str = "spherical_harmonics_convolution") -> TensorLike:
   """Computes the integral of harmonics1.harmonics2 over the sphere.
 
   Note:
@@ -50,8 +58,7 @@ def integration_product(harmonics1, harmonics2, keepdims=True, name=None):
     ValueError: if the last dimension of `harmonics1` is different from the last
     dimension of `harmonics2`.
   """
-  with tf.compat.v1.name_scope(name, "spherical_harmonics_convolution",
-                               [harmonics1, harmonics2]):
+  with tf.name_scope(name):  # pyrefly: ignore[bad-instantiation]
     harmonics1 = tf.convert_to_tensor(value=harmonics1)
     harmonics2 = tf.convert_to_tensor(value=harmonics2)
 
@@ -68,20 +75,20 @@ def integration_product(harmonics1, harmonics2, keepdims=True, name=None):
     return vector.dot(harmonics1, harmonics2, keepdims=keepdims)
 
 
-def generate_l_m_permutations(max_band, name=None):
+def generate_l_m_permutations(
+    max_band: int,
+    name: str = "spherical_harmonics_generate_l_m_permutations") -> Tuple[TensorLike, TensorLike]:  # pylint: disable=line-too-long
   """Generates permutations of degree l and order m for spherical harmonics.
 
   Args:
     max_band: An integer scalar storing the highest band.
     name: A name for this op. Defaults to
-      'spherical_harmonics_generate_l_m_permutations'.
+      "spherical_harmonics_generate_l_m_permutations".
 
   Returns:
     Two tensors of shape `[max_band*max_band]`.
   """
-  with tf.compat.v1.name_scope(name,
-                               "spherical_harmonics_generate_l_m_permutations",
-                               [max_band]):
+  with tf.name_scope(name):  # pyrefly: ignore[bad-instantiation]
     degree_l = []
     order_m = []
     for degree in range(0, max_band + 1):
@@ -92,18 +99,20 @@ def generate_l_m_permutations(max_band, name=None):
             tf.convert_to_tensor(value=order_m))
 
 
-def generate_l_m_zonal(max_band, name=None):
+def generate_l_m_zonal(
+    max_band: int,
+    name: str = "spherical_harmonics_generate_l_m_zonal") -> Tuple[TensorLike, TensorLike]:  # pylint: disable=line-too-long
   """Generates l and m coefficients for zonal harmonics.
 
   Args:
     max_band: An integer scalar storing the highest band.
     name: A name for this op. Defaults to
-      'spherical_harmonics_generate_l_m_zonal'.
+      "spherical_harmonics_generate_l_m_zonal".
 
   Returns:
     Two tensors of shape `[max_band+1]`, one for degree l and one for order m.
   """
-  with tf.compat.v1.name_scope(name, "generate_l_m_zonal", [max_band]):
+  with tf.name_scope(name):  # pyrefly: ignore[bad-instantiation]
     degree_l = np.linspace(0, max_band, num=max_band + 1, dtype=np.int32)
     order_m = np.zeros(max_band + 1, dtype=np.int32)
     return (tf.convert_to_tensor(value=degree_l),
@@ -152,7 +161,9 @@ def _evaluate_legendre_polynomial_branch(l, m, x, pmm):
   return res
 
 
-def evaluate_legendre_polynomial(degree_l, order_m, x):
+def evaluate_legendre_polynomial(degree_l: TensorLike,
+                                 order_m: TensorLike,
+                                 x: TensorLike) -> TensorLike:
   """Evaluates the Legendre polynomial of degree l and order m at x.
 
   Note:
@@ -224,7 +235,12 @@ def _evaluate_spherical_harmonics_branch(degree,
   # pylint: enable=missing-docstring
 
 
-def evaluate_spherical_harmonics(degree_l, order_m, theta, phi, name=None):
+def evaluate_spherical_harmonics(
+    degree_l: TensorLike,
+    order_m: TensorLike,
+    theta: TensorLike,
+    phi: TensorLike,
+    name: str = "spherical_harmonics_evaluate_spherical_harmonics") -> TensorLike:    # pylint: disable=line-too-long
   """Evaluates a point sample of a Spherical Harmonic basis function.
 
   Note:
@@ -246,7 +262,7 @@ def evaluate_spherical_harmonics(degree_l, order_m, theta, phi, name=None):
     phi: A tensor of shape `[A1, ..., An, 1]`. This variable stores the
       azimuthal angle of the sameple. Values of phi must be in [0, 2pi].
     name: A name for this op. Defaults to
-      'spherical_harmonics_evaluate_spherical_harmonics'.
+      "spherical_harmonics_evaluate_spherical_harmonics".
 
   Returns:
     A tensor of shape `[A1, ..., An, C]` containing the evaluation of each basis
@@ -257,9 +273,7 @@ def evaluate_spherical_harmonics(degree_l, order_m, theta, phi, name=None):
     InvalidArgumentError: if at least an element of `l`, `m`, `theta` or `phi`
     is outside the expected range.
   """
-  with tf.compat.v1.name_scope(
-      name, "spherical_harmonics_evaluate_spherical_harmonics",
-      [degree_l, order_m, theta, phi]):
+  with tf.name_scope(name):  # pyrefly: ignore[bad-instantiation]
     degree_l = tf.convert_to_tensor(value=degree_l)
     order_m = tf.convert_to_tensor(value=order_m)
     theta = tf.convert_to_tensor(value=theta)
@@ -300,7 +314,11 @@ def evaluate_spherical_harmonics(degree_l, order_m, theta, phi, name=None):
     return tf.where(tf.equal(order_m, zeros), result_m_zero, result_branch)
 
 
-def rotate_zonal_harmonics(zonal_coeffs, theta, phi, name=None):
+def rotate_zonal_harmonics(
+    zonal_coeffs: TensorLike,
+    theta: TensorLike,
+    phi: TensorLike,
+    name: str = "spherical_harmonics_rotate_zonal_harmonics") -> TensorLike:
   """Rotates zonal harmonics.
 
   Note:
@@ -311,7 +329,7 @@ def rotate_zonal_harmonics(zonal_coeffs, theta, phi, name=None):
     theta: A tensor of shape `[A1, ..., An, 1]` storing polar angles.
     phi: A tensor of shape `[A1, ..., An, 1]` storing azimuthal angles.
     name: A name for this op. Defaults to
-      'spherical_harmonics_rotate_zonal_harmonics'.
+      "spherical_harmonics_rotate_zonal_harmonics".
 
   Returns:
     A tensor of shape `[A1, ..., An, C*C]` storing coefficients of the rotated
@@ -321,9 +339,7 @@ def rotate_zonal_harmonics(zonal_coeffs, theta, phi, name=None):
     ValueError: If the shape of `zonal_coeffs`, `theta` or `phi` is not
       supported.
   """
-  with tf.compat.v1.name_scope(name,
-                               "spherical_harmonics_rotate_zonal_harmonics",
-                               [zonal_coeffs, theta, phi]):
+  with tf.name_scope(name):  # pyrefly: ignore[bad-instantiation]
     zonal_coeffs = tf.convert_to_tensor(value=zonal_coeffs)
     theta = tf.convert_to_tensor(value=theta)
     phi = tf.convert_to_tensor(value=phi)
@@ -350,7 +366,9 @@ def rotate_zonal_harmonics(zonal_coeffs, theta, phi, name=None):
         l_broadcasted, m_broadcasted, theta, phi)
 
 
-def tile_zonal_coefficients(coefficients, name=None):
+def tile_zonal_coefficients(
+    coefficients: TensorLike,
+    name: str = "spherical_harmonics_tile_zonal_coefficients") -> TensorLike:
   """Tiles zonal coefficients.
 
   Zonal Harmonics only contains the harmonics where m=0. This function returns
@@ -359,16 +377,16 @@ def tile_zonal_coefficients(coefficients, name=None):
   Args:
     coefficients: A tensor of shape `[C]` storing zonal harmonics coefficients.
     name: A name for this op. Defaults to
-      'spherical_harmonics_tile_zonal_coefficients'.
-  Return: A tensor of shape `[C*C]` containing zonal coefficients tiled as
+      "spherical_harmonics_tile_zonal_coefficients".
+
+  Returns:
+    A tensor of shape `[C*C]` containing zonal coefficients tiled as
     'regular' spherical harmonics coefficients.
 
   Raises:
     ValueError: if the shape of `coefficients` is not supported.
   """
-  with tf.compat.v1.name_scope(name,
-                               "spherical_harmonics_tile_zonal_coefficients",
-                               [coefficients]):
+  with tf.name_scope(name):  # pyrefly: ignore[bad-instantiation]
     coefficients = tf.convert_to_tensor(value=coefficients)
 
     shape.check_static(

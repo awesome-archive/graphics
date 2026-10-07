@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 r"""Tests for ray."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 import sys
 
@@ -50,10 +46,132 @@ class RayTest(test_case.TestCase):
     self.endpoints_values = points_expanded_values + 0.5 * direction
     self.weights_values = np.ones((batch_size, num_keypoints, num_cameras))
 
-    self.points = tf.convert_to_tensor(value=self.points_values)
-    self.startpoints = tf.convert_to_tensor(value=self.startpoints_values)
-    self.endpoints = tf.convert_to_tensor(value=self.endpoints_values)
-    self.weights = tf.convert_to_tensor(value=self.weights_values)
+    # Wrap these with identies because some assert_* ops look at the constant
+    # tensor values and mark these as unfeedable.
+    self.points = tf.identity(tf.convert_to_tensor(value=self.points_values))
+    self.startpoints = tf.identity(
+        tf.convert_to_tensor(value=self.startpoints_values))
+    self.endpoints = tf.identity(
+        tf.convert_to_tensor(value=self.endpoints_values))
+    self.weights = tf.identity(tf.convert_to_tensor(value=self.weights_values))
+
+  @parameterized.parameters(
+      ("Not all batch dimensions are identical.",
+       512, 1.0, 4.0, (4, 3), (5, 3)),
+      ("must have exactly 3 dimensions in axis",
+       512, 1.0, 4.0, (4, 2), (4, 2)),
+      ("Not all batch dimensions are identical.",
+       512, 1.0, 4.0, (2, 4, 3), (1, 3)),
+      ("Not all batch dimensions are broadcast-compatible.",
+       512, (2, 5), (2, 4), (2, 4, 3), (2, 4, 3)),
+      ("Not all batch dimensions are broadcast-compatible.",
+       512, (2, 5), (2, 5), (2, 4, 3), (2, 4, 3)),
+  )
+  def test_stratified_sampling_exception_raised(self, error_msg, n_samples,
+                                                near, far, *shapes):
+    """Tests that the shape exceptions are properly raised."""
+    if isinstance(near, tuple):
+      near = np.ones(near, dtype=np.float32) * 1.0
+    if isinstance(far, tuple):
+      far = np.ones(far, dtype=np.float32) * 4.0
+    self.assert_exception_is_raised(ray.sample_stratified_1d, error_msg, shapes,
+                                    near=near, far=far, n_samples=n_samples)
+
+  @parameterized.parameters(
+      ("stratified", 512, 1.0, 4.0, (4, 3), (4, 3)),
+      ("geomspace", 512, (4,), (4,), (4, 3), (4, 3)),
+      ("regular", 128, 1.0, 4.0, (5, 4, 3), (5, 4, 3)),
+      ("regular_inverse", 512, (5, 4), (5, 4), (5, 4, 3), (5, 4, 3)),
+      ("uniform", 512, (1,), (1,), (5, 4, 3), (5, 4, 3)),
+      ("stratified_geomspace", 512, 1.0, (1,), (5, 4, 3), (5, 4, 3)),
+      ("stratified", 512, 1.0, (5, 4), (5, 4, 3), (5, 4, 3)),
+      ("stratified", 512, 1.0, 4.0, (6, 5, 4, 3), (6, 5, 4, 3)),
+  )
+  def test_sample_1d_exception_is_not_raised(self, strategy, n_samples,
+                                             near, far, *shapes):
+    """Tests that the shape exceptions are properly raised."""
+    if isinstance(near, tuple):
+      near = np.ones(near, dtype=np.float32) * 1.0
+    if isinstance(far, tuple):
+      far = np.ones(far, dtype=np.float32) * 4.0
+    self.assert_exception_is_not_raised(ray.sample_1d, shapes,
+                                        strategy=strategy,
+                                        near=near, far=far, n_samples=n_samples)
+
+  @parameterized.parameters(
+      ("Not all batch dimensions are identical.",
+       "stratified", 512, 1.0, 4.0, (4, 3), (5, 3)),
+      ("must have exactly 3 dimensions in axis",
+       "stratified", 512, 1.0, 4.0, (4, 2), (4, 2)),
+      ("Not all batch dimensions are identical.",
+       "stratified", 512, 1.0, 4.0, (2, 4, 3), (1, 3)),
+      ("Not all batch dimensions are broadcast-compatible.",
+       "stratified", 512, (2, 5), (2, 4), (2, 4, 3), (2, 4, 3)),
+      ("Not all batch dimensions are broadcast-compatible.",
+       "stratified", 512, (2, 5), (2, 5), (2, 4, 3), (2, 4, 3)),
+      ("unknown 'strategy'",
+       "stratifiedsdfs", 512, 1.0, 4.0, (6, 5, 4, 3), (6, 5, 4, 3)),
+  )
+  def test_sample_1d_exception_raised(self, error_msg, strategy, n_samples,
+                                      near, far, *shapes):
+    """Tests that the shape exceptions are properly raised."""
+    if isinstance(near, tuple):
+      near = np.ones(near, dtype=np.float32) * 1.0
+    if isinstance(far, tuple):
+      far = np.ones(far, dtype=np.float32) * 4.0
+    self.assert_exception_is_raised(ray.sample_1d, error_msg, shapes,
+                                    strategy=strategy,
+                                    near=near, far=far, n_samples=n_samples)
+
+  @parameterized.parameters(
+      (512, 1.0, 4.0, (4, 3), (4, 3)),
+      (512, (4,), (4,), (4, 3), (4, 3)),
+      (128, 1.0, 4.0, (5, 4, 3), (5, 4, 3)),
+      (512, (5, 4), (5, 4), (5, 4, 3), (5, 4, 3)),
+      (512, (1,), (1,), (5, 4, 3), (5, 4, 3)),
+      (512, 1.0, (1,), (5, 4, 3), (5, 4, 3)),
+      (512, 1.0, (5, 4), (5, 4, 3), (5, 4, 3)),
+      (512, 1.0, 4.0, (6, 5, 4, 3), (6, 5, 4, 3)),
+  )
+  def test_stratified_sampling_exception_is_not_raised(self, n_samples,
+                                                       near, far, *shapes):
+    """Tests that the shape exceptions are properly raised."""
+    if isinstance(near, tuple):
+      near = np.ones(near, dtype=np.float32) * 1.0
+    if isinstance(far, tuple):
+      far = np.ones(far, dtype=np.float32) * 4.0
+    self.assert_exception_is_not_raised(ray.sample_stratified_1d, shapes,
+                                        near=near, far=far, n_samples=n_samples)
+
+  @parameterized.parameters(
+      ("Not all batch dimensions are identical.", 512,
+       (4, 3), (5, 3), (5, 3), (5, 3)),
+      ("must have exactly 3 dimensions in axis", 512,
+       (4, 2), (4, 2), (4, 11), (4, 11)),
+      ("Not all batch dimensions are identical.", 512,
+       (2, 4, 3), (1, 3), (5, 3), (5, 3)),
+      ("must have the same number of dimensions", 512,
+       (5, 3), (5, 3), (5, 11), (5, 12)),
+  )
+  def test_inverse_transform_stratified_exception_raised(self,
+                                                         error_msg,
+                                                         n_samples,
+                                                         *shapes):
+    """Tests that the shape exceptions are properly raised."""
+    self.assert_exception_is_raised(ray.sample_inverse_transform_stratified_1d,
+                                    error_msg, shapes, n_samples=n_samples)
+
+  @parameterized.parameters(
+      (512, (4, 3), (4, 3), (4, 13), (4, 13)),
+      (128, (5, 4, 3), (5, 4, 3), (5, 4, 13), (5, 4, 13)),
+  )
+  def test_inverse_transform_stratified_exception_is_not_raised(self,
+                                                                n_samples,
+                                                                *shapes):
+    """Tests that the shape exceptions are properly raised."""
+    self.assert_exception_is_not_raised(
+        ray.sample_inverse_transform_stratified_1d,
+        shapes, n_samples=n_samples)
 
   @parameterized.parameters(
       ("Not all batch dimensions are identical.", (4, 3), (5, 3), (4,)),
@@ -79,25 +197,29 @@ class RayTest(test_case.TestCase):
     """Tests that Jacobian is correct."""
     self._generate_random_example()
 
-    points = ray.triangulate(self.startpoints, self.endpoints, self.weights)
-
-    self.assert_jacobian_is_correct(self.startpoints, self.startpoints_values,
-                                    points)
-    self.assert_jacobian_is_correct(self.endpoints, self.endpoints_values,
-                                    points)
-    self.assert_jacobian_is_correct(self.weights, self.weights_values, points)
+    self.assert_jacobian_is_correct_fn(
+        lambda x: ray.triangulate(x, self.endpoints, self.weights),
+        [self.startpoints_values])
+    self.assert_jacobian_is_correct_fn(
+        lambda x: ray.triangulate(self.startpoints, x, self.weights),
+        [self.endpoints_values])
+    self.assert_jacobian_is_correct_fn(
+        lambda x: ray.triangulate(self.startpoints, self.endpoints, x),
+        [self.weights_values])
 
   def test_triangulate_jacobian_is_finite(self):
     """Tests that Jacobian is finite."""
     self._generate_random_example()
 
-    points = ray.triangulate(self.startpoints, self.endpoints, self.weights)
-
-    self.assert_jacobian_is_finite(self.startpoints, self.startpoints_values,
-                                   points)
-    self.assert_jacobian_is_finite(self.endpoints, self.endpoints_values,
-                                   points)
-    self.assert_jacobian_is_finite(self.weights, self.weights_values, points)
+    self.assert_jacobian_is_finite_fn(
+        lambda x: ray.triangulate(x, self.endpoints, self.weights),
+        [self.startpoints_values])
+    self.assert_jacobian_is_finite_fn(
+        lambda x: ray.triangulate(self.startpoints, x, self.weights),
+        [self.endpoints_values])
+    self.assert_jacobian_is_finite_fn(
+        lambda x: ray.triangulate(self.startpoints, self.endpoints, x),
+        [self.weights_values])
 
   def test_triangulate_random(self):
     """Tests that original points are recovered by triangualtion."""
@@ -188,21 +310,25 @@ class RayTest(test_case.TestCase):
     ray_init = np.random.uniform(size=tensor_shape + [3])
     ray_init /= np.linalg.norm(ray_init, axis=-1, keepdims=True)
     point_on_ray_init = np.random.uniform(0.0, 1.0, size=tensor_shape + [3])
-    sphere_center = tf.convert_to_tensor(value=sphere_center_init)
-    sphere_radius = tf.convert_to_tensor(value=sphere_radius_init)
-    ray_tensor = tf.convert_to_tensor(value=ray_init)
-    point_on_ray = tf.convert_to_tensor(value=point_on_ray_init)
-    y_p, y_n = ray.intersection_ray_sphere(sphere_center, sphere_radius,
-                                           ray_tensor, point_on_ray)
 
-    self.assert_jacobian_is_correct(ray_tensor, ray_init, y_p)
-    self.assert_jacobian_is_correct(ray_tensor, ray_init, y_n)
-    self.assert_jacobian_is_correct(sphere_radius, sphere_radius_init, y_p)
-    self.assert_jacobian_is_correct(sphere_radius, sphere_radius_init, y_n)
-    self.assert_jacobian_is_correct(sphere_center, sphere_center_init, y_p)
-    self.assert_jacobian_is_correct(sphere_center, sphere_center_init, y_n)
-    self.assert_jacobian_is_correct(point_on_ray, point_on_ray_init, y_p)
-    self.assert_jacobian_is_correct(point_on_ray, point_on_ray_init, y_n)
+    def intersection_ray_sphere_position(sphere_center, sphere_radius,
+                                         input_ray, point_on_ray):
+      y_p, _ = ray.intersection_ray_sphere(sphere_center, sphere_radius,
+                                           input_ray, point_on_ray)
+      return y_p
+
+    def intersection_ray_sphere_normal(sphere_center, sphere_radius, input_ray,
+                                       point_on_ray):
+      _, y_n = ray.intersection_ray_sphere(sphere_center, sphere_radius,
+                                           input_ray, point_on_ray)
+      return y_n
+
+    self.assert_jacobian_is_correct_fn(
+        intersection_ray_sphere_position,
+        [sphere_center_init, sphere_radius_init, ray_init, point_on_ray_init])
+    self.assert_jacobian_is_correct_fn(
+        intersection_ray_sphere_normal,
+        [sphere_center_init, sphere_radius_init, ray_init, point_on_ray_init])
 
   @parameterized.parameters(
       (((0.0, 0.0, 3.0), (1.0,), (0.0, 0.0, 1.0), (0.0, 0.0, 0.0)),

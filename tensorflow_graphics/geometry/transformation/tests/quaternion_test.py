@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for quaternion."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 from absl.testing import flagsaver
 from absl.testing import parameterized
@@ -57,13 +53,9 @@ class QuaternionTest(test_case.TestCase):
     tensor_shape = np.random.randint(1, 10, size=(tensor_size)).tolist()
     x_1_init = np.random.random(tensor_shape + [3])
     x_2_init = np.random.random(tensor_shape + [3])
-    x_1 = tf.convert_to_tensor(value=x_1_init)
-    x_2 = tf.convert_to_tensor(value=x_2_init)
 
-    y = quaternion.between_two_vectors_3d(x_1, x_2)
-
-    self.assert_jacobian_is_correct(x_1, x_1_init, y, atol=1e-4)
-    self.assert_jacobian_is_correct(x_2, x_2_init, y, atol=1e-4)
+    self.assert_jacobian_is_correct_fn(
+        quaternion.between_two_vectors_3d, [x_1_init, x_2_init], atol=1e-4)
 
   def test_between_two_vectors_3d_random(self):
     """Checks the extracted rotation between two 3d vectors."""
@@ -81,6 +73,23 @@ class QuaternionTest(test_case.TestCase):
     # Checks that resulting quaternions are normalized.
     self.assertAllEqual(
         quaternion.is_normalized(rotation), np.full(tensor_shape + [1], True))
+
+  def test_between_two_vectors_3d_that_are_the_same(self):
+    """Checks the extracted rotation between two identical 3d vectors."""
+    source = np.random.random((1, 3))
+    rotation = quaternion.between_two_vectors_3d(source, source)
+    self.assertAllEqual([[0, 0, 0, 1]], rotation)
+
+  def test_between_two_vectors_3d_that_are_collinear(self):
+    """Checks the extracted rotation between two collinear 3d vectors."""
+    axis = [(1.0, 0.0, 0.0), (0.0, 1.0, 0.0)]
+    antiparallel_axis = [(0.0, 1.0, 0.0), (0.0, 0.0, 1.0)]
+    source = np.multiply(axis, 10.)
+    target = np.multiply(axis, -10.)
+    rotation = quaternion.between_two_vectors_3d(source, target)
+    rotation_pi = quaternion.from_axis_angle(antiparallel_axis,
+                                             [[np.pi], [np.pi]])
+    self.assertAllClose(rotation_pi, rotation)
 
   @parameterized.parameters(
       ((4,),),
@@ -100,21 +109,15 @@ class QuaternionTest(test_case.TestCase):
   def test_conjugate_jacobian_preset(self):
     """Test the Jacobian of the conjugate function."""
     x_init = test_helpers.generate_preset_test_quaternions()
-    x = tf.convert_to_tensor(value=x_init)
 
-    y = quaternion.conjugate(x)
-
-    self.assert_jacobian_is_correct(x, x_init, y)
+    self.assert_jacobian_is_correct_fn(quaternion.conjugate, [x_init])
 
   @flagsaver.flagsaver(tfg_add_asserts_to_graph=False)
   def test_conjugate_jacobian_random(self):
     """Test the Jacobian of the conjugate function."""
     x_init = test_helpers.generate_random_test_quaternions()
-    x = tf.convert_to_tensor(value=x_init)
 
-    y = quaternion.conjugate(x)
-
-    self.assert_jacobian_is_correct(x, x_init, y)
+    self.assert_jacobian_is_correct_fn(quaternion.conjugate, [x_init])
 
   @parameterized.parameters(
       ((3,), (1,)),
@@ -137,25 +140,17 @@ class QuaternionTest(test_case.TestCase):
   def test_axis_angle_jacobian_preset(self):
     """Test the Jacobian of the from_axis_angle function."""
     x_axis_init, x_angle_init = test_helpers.generate_preset_test_axis_angle()
-    x_axis = tf.convert_to_tensor(value=x_axis_init)
-    x_angle = tf.convert_to_tensor(value=x_angle_init)
 
-    y = quaternion.from_axis_angle(x_axis, x_angle)
-
-    self.assert_jacobian_is_correct(x_axis, x_axis_init, y)
-    self.assert_jacobian_is_correct(x_angle, x_angle_init, y)
+    self.assert_jacobian_is_correct_fn(quaternion.from_axis_angle,
+                                       [x_axis_init, x_angle_init])
 
   @flagsaver.flagsaver(tfg_add_asserts_to_graph=False)
   def test_from_axis_angle_jacobian_random(self):
     """Test the Jacobian of the from_axis_angle function."""
     x_axis_init, x_angle_init = test_helpers.generate_random_test_axis_angle()
-    x_axis = tf.convert_to_tensor(value=x_axis_init)
-    x_angle = tf.convert_to_tensor(value=x_angle_init)
 
-    y = quaternion.from_axis_angle(x_axis, x_angle)
-
-    self.assert_jacobian_is_correct(x_axis, x_axis_init, y)
-    self.assert_jacobian_is_correct(x_angle, x_angle_init, y)
+    self.assert_jacobian_is_correct_fn(quaternion.from_axis_angle,
+                                       [x_axis_init, x_angle_init])
 
   def test_from_axis_angle_normalized_random(self):
     """Test that from_axis_angle produces normalized quaternions."""
@@ -197,21 +192,15 @@ class QuaternionTest(test_case.TestCase):
   def test_from_euler_jacobian_preset(self):
     """Test the Jacobian of the from_euler function."""
     x_init = test_helpers.generate_preset_test_euler_angles()
-    x = tf.convert_to_tensor(value=x_init)
 
-    y = quaternion.from_euler(x)
-
-    self.assert_jacobian_is_correct(x, x_init, y)
+    self.assert_jacobian_is_correct_fn(quaternion.from_euler, [x_init])
 
   @flagsaver.flagsaver(tfg_add_asserts_to_graph=False)
   def test_from_euler_jacobian_random(self):
     """Test the Jacobian of the from_euler function."""
     x_init = test_helpers.generate_random_test_euler_angles()
-    x = tf.convert_to_tensor(value=x_init)
 
-    y = quaternion.from_euler(x)
-
-    self.assert_jacobian_is_correct(x, x_init, y)
+    self.assert_jacobian_is_correct_fn(quaternion.from_euler, [x_init])
 
   def test_from_euler_normalized_random(self):
     """Tests that quaternions.from_euler returns normalized quaterions."""
@@ -289,22 +278,23 @@ class QuaternionTest(test_case.TestCase):
   @flagsaver.flagsaver(tfg_add_asserts_to_graph=False)
   def test_from_rotation_matrix_jacobian_preset(self):
     """Test the Jacobian of the from_rotation_matrix function."""
-    x_init = test_helpers.generate_preset_test_rotation_matrices_3d()
-    x = tf.convert_to_tensor(value=x_init)
+    if tf.executing_eagerly():
+      self.skipTest(reason="Graph mode only test")
+    with tf.compat.v1.Session() as sess:
+      x_init = np.array(
+          sess.run(test_helpers.generate_preset_test_rotation_matrices_3d()))
+      x = tf.convert_to_tensor(value=x_init)
 
-    y = quaternion.from_rotation_matrix(x)
+      y = quaternion.from_rotation_matrix(x)
 
-    self.assert_jacobian_is_finite(x, x_init, y)
+      self.assert_jacobian_is_finite(x, x_init, y)
 
   @flagsaver.flagsaver(tfg_add_asserts_to_graph=False)
   def test_from_rotation_matrix_jacobian_random(self):
     """Test the Jacobian of the from_rotation_matrix function."""
     x_init = test_helpers.generate_random_test_rotation_matrix_3d()
-    x = tf.convert_to_tensor(value=x_init)
 
-    y = quaternion.from_rotation_matrix(x)
-
-    self.assert_jacobian_is_finite(x, x_init, y)
+    self.assert_jacobian_is_finite_fn(quaternion.from_rotation_matrix, [x_init])
 
   def test_from_rotation_matrix_normalized_random(self):
     """Tests that from_rotation_matrix produces normalized quaternions."""
@@ -363,21 +353,15 @@ class QuaternionTest(test_case.TestCase):
   def test_inverse_jacobian_preset(self):
     """Test the Jacobian of the inverse function."""
     x_init = test_helpers.generate_preset_test_quaternions()
-    x = tf.convert_to_tensor(value=x_init)
 
-    y = quaternion.inverse(x)
-
-    self.assert_jacobian_is_correct(x, x_init, y)
+    self.assert_jacobian_is_correct_fn(quaternion.inverse, [x_init])
 
   @flagsaver.flagsaver(tfg_add_asserts_to_graph=False)
   def test_inverse_jacobian_random(self):
     """Test the Jacobian of the inverse function."""
     x_init = test_helpers.generate_random_test_quaternions()
-    x = tf.convert_to_tensor(value=x_init)
 
-    y = quaternion.inverse(x)
-
-    self.assert_jacobian_is_correct(x, x_init, y)
+    self.assert_jacobian_is_correct_fn(quaternion.inverse, [x_init])
 
   def test_inverse_normalized_random(self):
     """Tests that the inverse function returns normalized quaternions."""
@@ -470,11 +454,8 @@ class QuaternionTest(test_case.TestCase):
   def test_normalize_jacobian_preset(self):
     """Test the Jacobian of the normalize function."""
     x_init = test_helpers.generate_preset_test_quaternions()
-    x = tf.convert_to_tensor(value=x_init)
 
-    y = quaternion.normalize(x)
-
-    self.assert_jacobian_is_correct(x, x_init, y)
+    self.assert_jacobian_is_correct_fn(quaternion.normalize, [x_init])
 
   @flagsaver.flagsaver(tfg_add_asserts_to_graph=False)
   def test_normalize_jacobian_random(self):
@@ -482,11 +463,8 @@ class QuaternionTest(test_case.TestCase):
     tensor_dimensions = np.random.randint(low=1, high=3)
     tensor_shape = np.random.randint(1, 10, size=(tensor_dimensions)).tolist()
     x_init = test_helpers.generate_random_test_quaternions(tensor_shape)
-    x = tf.convert_to_tensor(value=x_init)
 
-    y = quaternion.normalize(x)
-
-    self.assert_jacobian_is_correct(x, x_init, y)
+    self.assert_jacobian_is_correct_fn(quaternion.normalize, [x_init])
 
   @parameterized.parameters(
       ((4,), (4,)),
@@ -509,13 +487,9 @@ class QuaternionTest(test_case.TestCase):
     """Test the Jacobian of the multiply function."""
     x_1_init = test_helpers.generate_preset_test_quaternions()
     x_2_init = test_helpers.generate_preset_test_quaternions()
-    x_1 = tf.convert_to_tensor(value=x_1_init)
-    x_2 = tf.convert_to_tensor(value=x_2_init)
 
-    y = quaternion.multiply(x_1, x_2)
-
-    self.assert_jacobian_is_correct(x_1, x_1_init, y)
-    self.assert_jacobian_is_correct(x_2, x_2_init, y)
+    self.assert_jacobian_is_correct_fn(quaternion.multiply,
+                                       [x_1_init, x_2_init])
 
   @flagsaver.flagsaver(tfg_add_asserts_to_graph=False)
   def test_multiply_jacobian_random(self):
@@ -524,13 +498,9 @@ class QuaternionTest(test_case.TestCase):
     tensor_shape = np.random.randint(1, 10, size=(tensor_dimensions)).tolist()
     x_1_init = test_helpers.generate_random_test_quaternions(tensor_shape)
     x_2_init = test_helpers.generate_random_test_quaternions(tensor_shape)
-    x_1 = tf.convert_to_tensor(value=x_1_init)
-    x_2 = tf.convert_to_tensor(value=x_2_init)
 
-    y = quaternion.multiply(x_1, x_2)
-
-    self.assert_jacobian_is_correct(x_1, x_1_init, y)
-    self.assert_jacobian_is_correct(x_2, x_2_init, y)
+    self.assert_jacobian_is_correct_fn(quaternion.multiply,
+                                       [x_1_init, x_2_init])
 
   def test_normalized_random_initializer_raised(self):
     """Tests that the shape exceptions are raised."""
@@ -538,38 +508,25 @@ class QuaternionTest(test_case.TestCase):
     tensor_shape = np.random.randint(1, 10, size=(tensor_size)).tolist()
 
     with self.subTest(name="dtype"):
-      with self.assertRaisesRegexp(ValueError, "'dtype' must be tf.float32."):
-        tf.compat.v1.get_variable(
-            "test_variable",
-            shape=tensor_shape + [4],
-            dtype=tf.uint8,
-            initializer=quaternion.normalized_random_uniform_initializer(),
-            use_resource=False)
+      with self.assertRaisesRegex(ValueError, "'dtype' must be tf.float32."):
+        quaternion.normalized_random_uniform_initializer()(
+            tensor_shape + [4], dtype=tf.uint8)
 
     with self.subTest(name="shape"):
-      with self.assertRaisesRegexp(ValueError,
-                                   "Last dimension of 'shape' must be 4."):
-        tf.compat.v1.get_variable(
-            "test_variable",
-            shape=tensor_shape + [3],
-            dtype=tf.float32,
-            initializer=quaternion.normalized_random_uniform_initializer(),
-            use_resource=False)
+      with self.assertRaisesRegex(
+          ValueError, "Last dimension of 'shape' must be 4."
+      ):
+        quaternion.normalized_random_uniform_initializer()(
+            tensor_shape + [3], dtype=tf.float32)
 
   def test_normalized_random_uniform_initializer_is_normalized(self):
     """Tests normalized_random_uniform_initializer outputs are normalized."""
     tensor_size = np.random.randint(3)
     tensor_shape = np.random.randint(1, 10, size=(tensor_size)).tolist()
 
-    variable = tf.compat.v1.get_variable(
-        "test_variable",
-        shape=tensor_shape + [4],
-        dtype=tf.float32,
-        initializer=quaternion.normalized_random_uniform_initializer(),
-        use_resource=False)
-    self.evaluate(tf.compat.v1.global_variables_initializer())
-    value = self.evaluate(variable)
-    norms = np.linalg.norm(value, axis=-1)
+    tensor = quaternion.normalized_random_uniform_initializer()(
+        tensor_shape + [4], dtype=tf.float32)
+    norms = tf.norm(tensor=tensor, axis=-1)
     ones = np.ones(tensor_shape)
 
     self.assertAllClose(norms, ones, rtol=1e-3)
@@ -605,29 +562,21 @@ class QuaternionTest(test_case.TestCase):
   def test_rotate_jacobian_preset(self):
     """Test the Jacobian of the rotate function."""
     x_matrix_init = test_helpers.generate_preset_test_quaternions()
-    x_matrix = tf.convert_to_tensor(value=x_matrix_init)
     tensor_shape = x_matrix_init.shape[:-1] + (3,)
     x_point_init = np.random.uniform(size=tensor_shape)
-    x_point = tf.convert_to_tensor(value=x_point_init)
 
-    y = quaternion.rotate(x_point, x_matrix)
-
-    self.assert_jacobian_is_correct(x_matrix, x_matrix_init, y)
-    self.assert_jacobian_is_correct(x_point, x_point_init, y)
+    self.assert_jacobian_is_correct_fn(quaternion.rotate,
+                                       [x_point_init, x_matrix_init])
 
   @flagsaver.flagsaver(tfg_add_asserts_to_graph=False)
   def test_rotate_jacobian_random(self):
     """Test the Jacobian of the rotate function."""
     x_matrix_init = test_helpers.generate_random_test_quaternions()
-    x_matrix = tf.convert_to_tensor(value=x_matrix_init)
     tensor_shape = x_matrix_init.shape[:-1] + (3,)
     x_point_init = np.random.uniform(size=tensor_shape)
-    x_point = tf.convert_to_tensor(value=x_point_init)
 
-    y = quaternion.rotate(x_point, x_matrix)
-
-    self.assert_jacobian_is_correct(x_matrix, x_matrix_init, y)
-    self.assert_jacobian_is_correct(x_point, x_point_init, y)
+    self.assert_jacobian_is_correct_fn(quaternion.rotate,
+                                       [x_point_init, x_matrix_init])
 
   def test_rotate_random(self):
     """Tests the rotation using a quaternion vs a rotation matrix."""
@@ -697,28 +646,20 @@ class QuaternionTest(test_case.TestCase):
     tensor_shape = np.random.randint(1, 10, size=(tensor_dimensions)).tolist()
     x_1_init = test_helpers.generate_random_test_quaternions(tensor_shape)
     x_2_init = test_helpers.generate_random_test_quaternions(tensor_shape)
-    x_1 = tf.convert_to_tensor(value=x_1_init)
-    x_2 = tf.convert_to_tensor(value=x_2_init)
 
-    y = quaternion.relative_angle(x_1, x_2)
-
-    self.assert_jacobian_is_correct(x_1, x_1_init, y)
-    self.assert_jacobian_is_correct(x_2, x_2_init, y)
+    self.assert_jacobian_is_correct_fn(quaternion.relative_angle,
+                                       [x_1_init, x_2_init])
 
   @flagsaver.flagsaver(tfg_add_asserts_to_graph=False)
   def test_jacobian_relative_angle_preset(self):
     """Test the Jacobian of the relative_angle function."""
     x_1_init = test_helpers.generate_preset_test_quaternions()
     x_2_init = test_helpers.generate_preset_test_quaternions()
-    x_1 = tf.convert_to_tensor(value=x_1_init)
-    x_2 = tf.convert_to_tensor(value=x_2_init)
-
-    y = quaternion.relative_angle(x_1, x_2)
 
     # relative angle is not smooth near <q1, q2> = 1, which occurs for
     # certain preset test quaternions.
-    self.assert_jacobian_is_finite(x_1, x_1_init, y)
-    self.assert_jacobian_is_finite(x_2, x_2_init, y)
+    self.assert_jacobian_is_finite_fn(quaternion.relative_angle,
+                                      [x_1_init, x_2_init])
 
 
 if __name__ == "__main__":

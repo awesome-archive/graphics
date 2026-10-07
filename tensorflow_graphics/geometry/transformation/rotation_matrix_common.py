@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,17 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from six.moves import range  # pyrefly: ignore[missing-source-for-stubs]
 import tensorflow as tf
 
 from tensorflow_graphics.util import export_api
 from tensorflow_graphics.util import shape
+from tensorflow_graphics.util import type_alias
 
 
-def is_valid(matrix, atol=1e-3, name=None):
+def is_valid(matrix: type_alias.TensorLike,
+             atol: type_alias.Float = 1e-3,
+             name: str = "rotation_matrix_common_is_valid") -> tf.Tensor:
   r"""Determines if a matrix in K-dimensions is a valid rotation matrix.
 
   Determines if a matrix $$\mathbf{R}$$ is a valid rotation matrix by checking
@@ -41,8 +45,7 @@ def is_valid(matrix, atol=1e-3, name=None):
     A tensor of type `bool` and shape `[A1, ..., An, 1]` where False indicates
     that the input is not a valid rotation matrix.
   """
-  with tf.compat.v1.name_scope(name, "rotation_matrix_common_is_valid",
-                               [matrix]):
+  with tf.name_scope(name):  # pyrefly: ignore[bad-instantiation]
     matrix = tf.convert_to_tensor(value=matrix)
 
     shape.check_static(
@@ -58,7 +61,7 @@ def is_valid(matrix, atol=1e-3, name=None):
     ndims = matrix.shape.ndims
     permutation = list(range(ndims - 2)) + [ndims - 1, ndims - 2]
     identity = tf.eye(
-        tf.compat.v1.dimension_value(matrix.shape[-1]), dtype=matrix.dtype)
+        tf.compat.dimension_value(matrix.shape[-1]), dtype=matrix.dtype)
     difference_to_identity = tf.matmul(
         tf.transpose(a=matrix, perm=permutation), matrix) - identity
     norm_diff = tf.norm(tensor=difference_to_identity, axis=(-2, -1))

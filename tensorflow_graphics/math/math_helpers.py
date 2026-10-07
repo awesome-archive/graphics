@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,31 +19,40 @@ from __future__ import print_function
 
 import numpy as np
 import tensorflow as tf
-
 from tensorflow_graphics.util import asserts
 from tensorflow_graphics.util import export_api
 from tensorflow_graphics.util import safe_ops
 from tensorflow_graphics.util import shape
+from tensorflow_graphics.util.type_alias import Float
+from tensorflow_graphics.util.type_alias import TensorLike
 
 
-def cartesian_to_spherical_coordinates(point_cartesian, name=None):
+def cartesian_to_spherical_coordinates(
+    point_cartesian: TensorLike,
+    eps: Float = None,
+    name: str = "cartesian_to_spherical_coordinates") -> tf.Tensor:
   """Function to transform Cartesian coordinates to spherical coordinates.
+
+  This function assumes a right handed coordinate system with `z` pointing up.
+  When `x` and `y` are both `0`, the function outputs `0` for `phi`. Note that
+  the function is not smooth when `x = y = 0`.
 
   Note:
     In the following, A1 to An are optional batch dimensions.
 
   Args:
     point_cartesian: A tensor of shape `[A1, ..., An, 3]`. In the last
-      dimension, the data follows the x,y,z order.
-    name: A name for this op. Defaults to 'cartesian_to_spherical_coordinates'.
+      dimension, the data follows the `x`, `y`, `z` order.
+    eps: A small `float`, to be added to the denominator. If left as `None`, its
+      value is automatically selected using `point_cartesian.dtype`.
+    name: A name for this op. Defaults to "cartesian_to_spherical_coordinates".
 
   Returns:
     A tensor of shape `[A1, ..., An, 3]`. The last dimensions contains
-    (r,theta,phi), where r is the sphere radius, theta the polar angle and phi
-    the azimuthal angle.
+    (`r`,`theta`,`phi`), where `r` is the sphere radius, `theta` is the polar
+    angle and `phi` is the azimuthal angle. Returns `NaN` gradient if x = y = 0.
   """
-  with tf.compat.v1.name_scope(name, "cartesian_to_spherical_coordinates",
-                               [point_cartesian]):
+  with tf.name_scope(name):  # pyrefly: ignore[bad-instantiation]
     point_cartesian = tf.convert_to_tensor(value=point_cartesian)
 
     shape.check_static(
@@ -53,7 +62,8 @@ def cartesian_to_spherical_coordinates(point_cartesian, name=None):
 
     x, y, z = tf.unstack(point_cartesian, axis=-1)
     radius = tf.norm(tensor=point_cartesian, axis=-1)
-    theta = tf.acos(safe_ops.safe_signed_div(z, radius))
+    theta = tf.acos(
+        tf.clip_by_value(safe_ops.safe_unsigned_div(z, radius, eps), -1., 1.))
     phi = tf.atan2(y, x)
     return tf.stack((radius, theta, phi), axis=-1)
 
@@ -68,7 +78,7 @@ def _double_factorial_loop_condition(n, result, two):
   return tf.cast(tf.math.count_nonzero(tf.greater_equal(n, two)), tf.bool)
 
 
-def double_factorial(n):
+def double_factorial(n: TensorLike) -> TensorLike:
   """Computes the double factorial of `n`.
 
   Note:
@@ -91,7 +101,7 @@ def double_factorial(n):
   return result
 
 
-def factorial(n):
+def factorial(n: TensorLike) -> TensorLike:
   """Computes the factorial of `n`.
 
   Note:
@@ -108,7 +118,9 @@ def factorial(n):
   return tf.exp(tf.math.lgamma(n + 1))
 
 
-def spherical_to_cartesian_coordinates(point_spherical, name=None):
+def spherical_to_cartesian_coordinates(
+    point_spherical: TensorLike,
+    name: str = "spherical_to_cartesian_coordinates") -> TensorLike:
   """Function to transform Cartesian coordinates to spherical coordinates.
 
   Note:
@@ -118,7 +130,7 @@ def spherical_to_cartesian_coordinates(point_spherical, name=None):
     point_spherical: A tensor of shape `[A1, ..., An, 3]`. The last dimension
       contains r, theta, and phi that respectively correspond to the radius,
       polar angle and azimuthal angle; r must be non-negative.
-    name: A name for this op. Defaults to 'spherical_to_cartesian_coordinates'.
+    name: A name for this op. Defaults to "spherical_to_cartesian_coordinates".
 
   Raises:
     tf.errors.InvalidArgumentError: If r, theta or phi contains out of range
@@ -128,8 +140,7 @@ def spherical_to_cartesian_coordinates(point_spherical, name=None):
     A tensor of shape `[A1, ..., An, 3]`, where the last dimension contains the
     cartesian coordinates in x,y,z order.
   """
-  with tf.compat.v1.name_scope(name, "spherical_to_cartesian_coordinates",
-                               [point_spherical]):
+  with tf.name_scope(name):  # pyrefly: ignore[bad-instantiation]
     point_spherical = tf.convert_to_tensor(value=point_spherical)
 
     shape.check_static(
@@ -146,7 +157,9 @@ def spherical_to_cartesian_coordinates(point_spherical, name=None):
     return tf.stack((x, y, z), axis=-1)
 
 
-def square_to_spherical_coordinates(point_2d, name=None):
+def square_to_spherical_coordinates(
+    point_2d: TensorLike,
+    name: str = "math_square_to_spherical_coordinates") -> TensorLike:
   """Maps points from a unit square to a unit sphere.
 
   Note:
@@ -167,8 +180,7 @@ def square_to_spherical_coordinates(point_2d, name=None):
     [0,1].
 
   """
-  with tf.compat.v1.name_scope(name, "math_square_to_spherical_coordinates",
-                               [point_2d]):
+  with tf.name_scope(name):  # pyrefly: ignore[bad-instantiation]
     point_2d = tf.convert_to_tensor(value=point_2d)
 
     shape.check_static(

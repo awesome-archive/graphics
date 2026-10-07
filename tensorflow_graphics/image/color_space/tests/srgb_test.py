@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,9 @@
 # limitations under the License.
 """Tests for srgb."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
+from absl.testing import flagsaver
 from absl.testing import parameterized
 import numpy as np
-import tensorflow as tf
 
 from tensorflow_graphics.image.color_space import linear_rgb
 from tensorflow_graphics.image.color_space import srgb
@@ -52,22 +48,16 @@ class SrgbTest(test_case.TestCase):
     tensor_size = np.random.randint(3)
     tensor_shape = np.random.randint(1, 10, size=(tensor_size)).tolist()
     linear_random_init = np.random.uniform(size=tensor_shape + [3])
-    linear_random = tf.convert_to_tensor(value=linear_random_init)
 
-    srgb_random = srgb.from_linear_rgb(linear_random)
-
-    self.assert_jacobian_is_correct(linear_random, linear_random_init,
-                                    srgb_random)
+    self.assert_jacobian_is_correct_fn(srgb.from_linear_rgb,
+                                       [linear_random_init])
 
   @parameterized.parameters((np.array((0., 0.001, 0.002)),), (np.array(
       (0.004, 0.005, 1.)),), (np.array((0.00312, 0.004, 0.00314)),))
+  @flagsaver.flagsaver(tfg_add_asserts_to_graph=False)
   def test_from_linear_rgb_jacobian_preset(self, inputs_init):
     """Tests the Jacobian of the from_linear_rgb function for preset inputs."""
-    inputs_tensor = tf.convert_to_tensor(value=inputs_init)
-
-    outputs = srgb.from_linear_rgb(inputs_tensor)
-
-    self.assert_jacobian_is_correct(inputs_tensor, inputs_init, outputs)
+    self.assert_jacobian_is_correct_fn(srgb.from_linear_rgb, [inputs_init])
 
   @parameterized.parameters(
       ((3,),),

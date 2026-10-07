@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,16 +23,13 @@ from __future__ import division
 from __future__ import print_function
 
 import enum
-import tensorflow as tf
+from typing import Tuple, Union
 
+import tensorflow as tf
 from tensorflow_graphics.util import asserts
 from tensorflow_graphics.util import export_api
 from tensorflow_graphics.util import shape
-
-
-# TODO: remove when TF API is
-def _mod(x, y):
-  return x - tf.cast((x // y) * y, dtype=x.dtype)
+from tensorflow_graphics.util import type_alias
 
 
 class Degree(enum.IntEnum):
@@ -44,19 +41,19 @@ class Degree(enum.IntEnum):
   QUARTIC = 4
 
 
-def _constant(position):
+def _constant(position: tf.Tensor) -> tf.Tensor:
   """B-Spline basis function of degree 0 for positions in the range [0, 1]."""
   # A piecewise constant spline is discontinuous at the knots.
   return tf.expand_dims(tf.clip_by_value(1.0 + position, 1.0, 1.0), axis=-1)
 
 
-def _linear(position):
+def _linear(position: tf.Tensor) -> tf.Tensor:
   """B-Spline basis functions of degree 1 for positions in the range [0, 1]."""
   # Piecewise linear splines are C0 smooth.
   return tf.stack((1.0 - position, position), axis=-1)
 
 
-def _quadratic(position):
+def _quadratic(position: tf.Tensor) -> tf.Tensor:
   """B-Spline basis functions of degree 2 for positions in the range [0, 1]."""
   # We pre-calculate the terms that are used multiple times.
   pos_sq = tf.pow(position, 2.0)
@@ -67,7 +64,7 @@ def _quadratic(position):
                   axis=-1)
 
 
-def _cubic(position):
+def _cubic(position: tf.Tensor) -> tf.Tensor:
   """B-Spline basis functions of degree 3 for positions in the range [0, 1]."""
   # We pre-calculate the terms that are used multiple times.
   neg_pos = 1.0 - position
@@ -82,7 +79,7 @@ def _cubic(position):
       axis=-1)
 
 
-def _quartic(position):
+def _quartic(position: tf.Tensor) -> tf.Tensor:
   """B-Spline basis functions of degree 4 for positions in the range [0, 1]."""
   # We pre-calculate the terms that are used multiple times.
   neg_pos = 1.0 - position
@@ -101,12 +98,14 @@ def _quartic(position):
       axis=-1)
 
 
-def knot_weights(positions,
-                 num_knots,
-                 degree,
-                 cyclical,
-                 sparse_mode=False,
-                 name=None):
+def knot_weights(
+    positions: type_alias.TensorLike,
+    num_knots: type_alias.TensorLike,
+    degree: int,
+    cyclical: bool,
+    sparse_mode: bool = False,
+    name: str = "bspline_knot_weights"
+) -> Union[tf.Tensor, Tuple[tf.Tensor, tf.Tensor]]:
   """Function that converts cardinal B-spline positions to knot weights.
 
   Note:
@@ -125,7 +124,7 @@ def knot_weights(positions,
       knots with nonzero weights. If set to True, the function returns the
       weights of only the `degree` + 1 knots that are non-zero, as well as the
       indices of the knots.
-    name: A name for this op. Defaults to "bsplines_knot_weights".
+    name: A name for this op. Defaults to "bspline_knot_weights".
 
   Returns:
     A tensor with dense weights for each control point, with the shape
@@ -138,7 +137,7 @@ def knot_weights(positions,
     ValueError: If degree is greater than 4 or num_knots - 1, or less than 0.
     InvalidArgumentError: If positions are not in the right range.
   """
-  with tf.compat.v1.name_scope(name, "bsplines_knot_weights", [positions]):
+  with tf.name_scope(name):
     positions = tf.convert_to_tensor(value=positions)
 
     if degree > 4 or degree < 0:
@@ -159,7 +158,7 @@ def knot_weights(positions,
         Degree.CUBIC: _cubic,
         Degree.QUARTIC: _quartic
     }
-    basis_functions = all_basis_functions[degree]
+    basis_functions = all_basis_functions[degree]  # pyrefly: ignore[bad-index]
 
     if not cyclical and num_knots - degree == 1:
       # In this case all weights are non-zero and we can just return them.
@@ -198,7 +197,7 @@ def knot_weights(positions,
         shape=(-1,))
     ind_col = tf.reshape(ind_col, shape=(-1,)) + tiled_shifts
     if cyclical:
-      ind_col = _mod(ind_col, num_knots)
+      ind_col = tf.math.mod(ind_col, num_knots)
     indices = tf.stack((tf.reshape(ind_row, shape=(-1,)), ind_col), axis=-1)
     shape_indices = tf.concat((tf.reshape(
         num_positions, shape=(1,)), tf.constant(
@@ -214,7 +213,10 @@ def knot_weights(positions,
     return tf.reshape(weights, shape=shape_weights)
 
 
-def interpolate_with_weights(knots, weights, name=None):
+def interpolate_with_weights(
+    knots: type_alias.TensorLike,
+    weights: type_alias.TensorLike,
+    name: str = "bspline_interpolate_with_weights") -> tf.Tensor:
   """Interpolates knots using knot weights.
 
   Note:
@@ -225,7 +227,7 @@ def interpolate_with_weights(knots, weights, name=None):
       `C` is the number of knots.
     weights: A tensor with shape `[A1, ..., An, C]` containing dense weights for
       the knots, where `C` is the number of knots.
-    name: A name for this op. Defaults to "bsplines_interpolate_with_weights".
+    name: A name for this op. Defaults to "bspline_interpolate_with_weights".
 
   Returns:
     A tensor with shape `[A1, ..., An, B1, ..., Bk]`, which is the result of
@@ -234,8 +236,7 @@ def interpolate_with_weights(knots, weights, name=None):
   Raises:
     ValueError: If the last dimension of knots and weights is not equal.
   """
-  with tf.compat.v1.name_scope(name, "bsplines_interpolate_with_weights",
-                               [knots, weights]):
+  with tf.name_scope(name):
     knots = tf.convert_to_tensor(value=knots)
     weights = tf.convert_to_tensor(value=weights)
 
@@ -245,7 +246,11 @@ def interpolate_with_weights(knots, weights, name=None):
   return tf.tensordot(weights, knots, (-1, -1))
 
 
-def interpolate(knots, positions, degree, cyclical, name=None):
+def interpolate(knots: type_alias.TensorLike,
+                positions: type_alias.TensorLike,
+                degree: int,
+                cyclical: bool,
+                name: str = "bspline_interpolate") -> tf.Tensor:
   """Applies B-spline interpolation to input control points (knots).
 
   Note:
@@ -254,9 +259,9 @@ def interpolate(knots, positions, degree, cyclical, name=None):
   Args:
     knots: A tensor with shape `[B1, ..., Bk, C]` containing knot values, where
       `C` is the number of knots.
-    positions: Tensor with shape `[A1, .. An]`. Positions must be between `[0, C
-      - D)` for non-cyclical and `[0, C)` for cyclical splines, where `C` is the
-      number of knots and `D` is the spline degree.
+    positions: Tensor with shape `[A1, .. An]`. Positions must be between
+      `[0, C - D)` for non-cyclical and `[0, C)` for cyclical splines, where `C`
+      is the number of knots and `D` is the spline degree.
     degree: An `int` between 0 and 4, or an enumerated constant from the Degree
       class, which is the degree of the splines.
     cyclical: A `bool`, whether the splines are cyclical.
@@ -266,7 +271,7 @@ def interpolate(knots, positions, degree, cyclical, name=None):
     A tensor of shape `[A1, ... An, B1, ..., Bk]`, which is the result of spline
     interpolation.
   """
-  with tf.compat.v1.name_scope(name, "bspline_interpolate", [knots, positions]):
+  with tf.name_scope(name):
     knots = tf.convert_to_tensor(value=knots)
     positions = tf.convert_to_tensor(value=positions)
 

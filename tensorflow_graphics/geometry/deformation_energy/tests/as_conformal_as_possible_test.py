@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for as_conformal_as_possible."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
 
 from absl.testing import flagsaver
 from absl.testing import parameterized
@@ -72,37 +68,34 @@ class AsConformalAsPossibleTest(test_case.TestCase):
         0, number_vertices / 2 - 1, num_edges, dtype=np.int32)
     edges[..., 1] = np.linspace(
         number_vertices / 2, number_vertices - 1, num_edges, dtype=np.int32)
-    vertices_rest_pose = tf.convert_to_tensor(value=vertices_rest_pose_init)
-    vertices_deformed_pose = tf.convert_to_tensor(
-        value=vertices_deformed_pose_init)
-    quaternions = tf.convert_to_tensor(value=quaternions_init)
 
-    conformal_energy = as_conformal_as_possible.energy(
-        vertices_rest_pose=vertices_rest_pose,
-        vertices_deformed_pose=vertices_deformed_pose,
-        quaternions=quaternions,
-        edges=edges,
-        conformal_energy=True)
-    nonconformal_energy = as_conformal_as_possible.energy(
-        vertices_rest_pose=vertices_rest_pose,
-        vertices_deformed_pose=vertices_deformed_pose,
-        quaternions=quaternions,
-        edges=edges,
-        conformal_energy=False)
+    def conformal_energy(vertices_rest_pose, vertices_deformed_pose,
+                         quaternions):
+      return as_conformal_as_possible.energy(
+          vertices_rest_pose=vertices_rest_pose,
+          vertices_deformed_pose=vertices_deformed_pose,
+          quaternions=quaternions,
+          edges=edges,
+          conformal_energy=True)
 
-    with self.subTest(name="rest_pose"):
-      self.assert_jacobian_is_correct(vertices_rest_pose,
-                                      vertices_rest_pose_init, conformal_energy)
-    with self.subTest(name="deformed_pose"):
-      self.assert_jacobian_is_correct(vertices_deformed_pose,
-                                      vertices_deformed_pose_init,
-                                      conformal_energy)
-    with self.subTest(name="quaternions_scaled"):
-      self.assert_jacobian_is_correct(quaternions, quaternions_init,
-                                      conformal_energy)
-    with self.subTest(name="quaternions_normalized"):
-      self.assert_jacobian_is_correct(quaternions, quaternions_init,
-                                      nonconformal_energy)
+    def nonconformal_energy(vertices_rest_pose, vertices_deformed_pose,
+                            quaternions):
+      return as_conformal_as_possible.energy(
+          vertices_rest_pose=vertices_rest_pose,
+          vertices_deformed_pose=vertices_deformed_pose,
+          quaternions=quaternions,
+          edges=edges,
+          conformal_energy=False)
+
+    with self.subTest(name="conformal"):
+      self.assert_jacobian_is_correct_fn(conformal_energy, [
+          vertices_rest_pose_init, vertices_deformed_pose_init, quaternions_init
+      ])
+
+    with self.subTest(name="non_conformal"):
+      self.assert_jacobian_is_correct_fn(nonconformal_energy, [
+          vertices_rest_pose_init, vertices_deformed_pose_init, quaternions_init
+      ])
 
   @parameterized.parameters(
       ((1, 3), (1, 3), (1, 4), (1, 2), (1,), (1,)),

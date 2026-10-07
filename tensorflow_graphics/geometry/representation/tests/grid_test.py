@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ from __future__ import print_function
 
 from absl.testing import parameterized
 import numpy as np
+from six.moves import range
 import tensorflow as tf
 
 from tensorflow_graphics.geometry.representation import grid
@@ -65,7 +66,8 @@ class GridTest(test_case.TestCase):
 
     g = grid.generate(starts, stops, nums)
     shape = nums.tolist() + [2]
-    xv, yv = np.meshgrid(range(shape[0]), range(shape[1]), indexing="ij")
+    xv, yv = np.meshgrid(
+        list(range(shape[0])), list(range(shape[1])), indexing="ij")
     gt = np.stack((xv, yv), axis=-1).astype(np.float32)
 
     self.assertAllClose(g, gt)

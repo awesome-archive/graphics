@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,10 +19,13 @@ from __future__ import print_function
 
 from absl.testing import parameterized
 import numpy as np
+from six.moves import range
 import tensorflow as tf
 
 from tensorflow_graphics.image import pyramid
 from tensorflow_graphics.util import test_case
+
+_NUM_LEVELS = 3
 
 
 class PyramidTest(test_case.TestCase):
@@ -33,7 +36,7 @@ class PyramidTest(test_case.TestCase):
   )
   def test_downsample_exception_not_raised(self, *shape):
     """Tests that the shape exceptions are not raised."""
-    downsample = lambda image: pyramid.downsample(image, num_levels=4)
+    downsample = lambda image: pyramid.downsample(image, num_levels=_NUM_LEVELS)
 
     self.assert_exception_is_not_raised(downsample, shape)
 
@@ -41,21 +44,23 @@ class PyramidTest(test_case.TestCase):
       ("must have a rank of 4", ()),)
   def test_downsample_exception_raised(self, error_msg, *shape):
     """Tests that the shape exceptions are properly raised."""
-    downsample = lambda image: pyramid.downsample(image, num_levels=4)
+    downsample = lambda image: pyramid.downsample(image, num_levels=_NUM_LEVELS)
 
     self.assert_exception_is_raised(downsample, error_msg, shape)
 
   def test_downsample_jacobian_random(self):
     """Tests the Jacobian for random inputs."""
-    downsample = lambda image: pyramid.downsample(image, num_levels=4)
-    tensor_shape = np.random.randint(1, 5, size=(4)).tolist()
+    downsample = lambda image: pyramid.downsample(image, num_levels=_NUM_LEVELS)
+    tensor_shape = np.random.randint(1, 5, size=4).tolist()
     image_random_init = np.random.uniform(size=tensor_shape)
-    image_random = tf.convert_to_tensor(value=image_random_init)
 
-    downsample_random = downsample(image_random)
-
-    for level in downsample_random:
-      self.assert_jacobian_is_correct(image_random, image_random_init, level)
+    for level in range(_NUM_LEVELS):
+      # We skip testing level = 0, which returns the image as is. In graph mode,
+      # the gradient calculation fails when there are no nodes in the graph.
+      if level == 0 and not tf.executing_eagerly():
+        continue
+      self.assert_jacobian_is_correct_fn(
+          lambda x, level=level: downsample(x)[level], [image_random_init])
 
   @parameterized.parameters(
       (((0.,),), ((0.,),)),
@@ -82,7 +87,7 @@ class PyramidTest(test_case.TestCase):
   )
   def test_upsample_exception_not_raised(self, *shape):
     """Tests that the shape exceptions are not raised."""
-    upsample = lambda image: pyramid.upsample(image, num_levels=4)
+    upsample = lambda image: pyramid.upsample(image, num_levels=_NUM_LEVELS)
 
     self.assert_exception_is_not_raised(upsample, shape)
 
@@ -90,21 +95,23 @@ class PyramidTest(test_case.TestCase):
       ("must have a rank of 4", ()),)
   def test_upsample_exception_raised(self, error_msg, *shape):
     """Tests that the shape exceptions are properly raised."""
-    upsample = lambda image: pyramid.upsample(image, num_levels=4)
+    upsample = lambda image: pyramid.upsample(image, num_levels=_NUM_LEVELS)
 
     self.assert_exception_is_raised(upsample, error_msg, shape)
 
   def test_upsample_jacobian_random(self):
     """Tests the Jacobian for random inputs."""
-    upsample = lambda image: pyramid.upsample(image, num_levels=4)
-    tensor_shape = np.random.randint(1, 5, size=(4)).tolist()
+    upsample = lambda image: pyramid.upsample(image, num_levels=_NUM_LEVELS)
+    tensor_shape = np.random.randint(1, 5, size=4).tolist()
     image_random_init = np.random.uniform(size=tensor_shape)
-    image_random = tf.convert_to_tensor(value=image_random_init)
 
-    upsample_random = upsample(image_random)
-
-    for level in upsample_random:
-      self.assert_jacobian_is_correct(image_random, image_random_init, level)
+    for level in range(_NUM_LEVELS):
+      # We skip testing level = 0, which returns the image as is. In graph mode,
+      # the gradient calculation fails when there are no nodes in the graph.
+      if level == 0 and not tf.executing_eagerly():
+        continue
+      self.assert_jacobian_is_correct_fn(
+          lambda x, level=level: upsample(x)[level], [image_random_init])
 
   @parameterized.parameters(
       (((0.,),), ((0., 0.), (0., 0.))),
@@ -161,7 +168,7 @@ class PyramidTest(test_case.TestCase):
   )
   def test_split_exception_not_raised(self, *shape):
     """Tests that the shape exceptions are not raised."""
-    split = lambda image: pyramid.split(image, num_levels=4)
+    split = lambda image: pyramid.split(image, num_levels=_NUM_LEVELS)
 
     self.assert_exception_is_not_raised(split, shape)
 
@@ -173,19 +180,19 @@ class PyramidTest(test_case.TestCase):
   )
   def test_split_exception_raised(self, error_msg, *shape):
     """Tests that the shape exceptions are properly raised."""
-    split = lambda image: pyramid.split(image, num_levels=4)
+    split = lambda image: pyramid.split(image, num_levels=_NUM_LEVELS)
 
     self.assert_exception_is_raised(split, error_msg, shape)
 
   def test_split_jacobian_random(self):
     """Tests the Jacobian for random inputs."""
-    tensor_shape = np.random.randint(1, 5, size=(4)).tolist()
+    split = lambda image: pyramid.split(image, num_levels=_NUM_LEVELS)
+    tensor_shape = np.random.randint(1, 5, size=4).tolist()
     image_random_init = np.random.uniform(size=tensor_shape)
-    image_random = tf.convert_to_tensor(value=image_random_init)
-    split_random = pyramid.split(image_random, num_levels=4)
 
-    for level in split_random:
-      self.assert_jacobian_is_correct(image_random, image_random_init, level)
+    for level in range(_NUM_LEVELS):  # pylint: disable=unused-variable
+      self.assert_jacobian_is_correct_fn(
+          lambda x, level=level: split(x)[level], [image_random_init])
 
   @parameterized.parameters(
       (0,),
@@ -194,7 +201,7 @@ class PyramidTest(test_case.TestCase):
   )
   def test_split_merge_random(self, num_levels):
     """Tests that splitting and merging back can reproduce the input."""
-    tensor_shape = np.random.randint(1, 5, size=(4)).tolist()
+    tensor_shape = np.random.randint(1, 5, size=4).tolist()
     image_random = np.random.uniform(size=tensor_shape)
 
     split = pyramid.split(image_random, num_levels=num_levels)

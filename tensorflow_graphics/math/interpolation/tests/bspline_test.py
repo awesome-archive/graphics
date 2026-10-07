@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,15 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Tests for slerp."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+"""Tests for bspline."""
 
 from absl.testing import parameterized
 import numpy as np
-import tensorflow as tf
 
 from tensorflow_graphics.math.interpolation import bspline
 from tensorflow_graphics.util import test_case
@@ -30,30 +25,30 @@ class BSplineTest(test_case.TestCase):
   @parameterized.parameters((0.0, (1.0,)), (1.0, (1.0,)))
   def test_constant_basis_boundary_values(self, position, weights):
     """Tests that basis functions of degree 0 return expected values."""
-    self.assertAllClose(bspline._constant(position), weights)
+    self.assertAllClose(bspline._constant(position), weights)  # pylint: disable=protected-access
 
   @parameterized.parameters((0.0, (1.0, 0.0)), (1.0, (0.0, 1.0)))
   def test_linear_basis_boundary_values(self, position, weights):
     """Tests that basis functions of degree 1 return expected values."""
-    self.assertAllClose(bspline._linear(position), weights)
+    self.assertAllClose(bspline._linear(position), weights)  # pylint: disable=protected-access
 
   @parameterized.parameters((0.0, (0.5, 0.5, 0.0)), (1.0, (0.0, 0.5, 0.5)))
   def test_quadratic_basis_boundary_values(self, position, weights):
     """Tests that basis functions of degree 2 return expected values."""
-    self.assertAllClose(bspline._quadratic(position), weights)
+    self.assertAllClose(bspline._quadratic(position), weights)  # pylint: disable=protected-access
 
   @parameterized.parameters((0.0, (1.0 / 6.0, 2.0 / 3.0, 1.0 / 6.0, 0.0)),
                             (1.0, (0.0, 1.0 / 6.0, 2.0 / 3.0, 1.0 / 6.0)))
   def test_cubic_basis_boundary_values(self, position, weights):
     """Tests that basis functions of degree 3 return expected values."""
-    self.assertAllClose(bspline._cubic(position), weights)
+    self.assertAllClose(bspline._cubic(position), weights)  # pylint: disable=protected-access
 
   @parameterized.parameters(
       (0.0, (1.0 / 24.0, 11.0 / 24.0, 11.0 / 24.0, 1.0 / 24.0, 0.0)),
       (1.0, (0.0, 1.0 / 24.0, 11.0 / 24.0, 11.0 / 24.0, 1.0 / 24.0)))
   def test_quartic_basis_boundary_values(self, position, weights):
     """Tests that basis functions of degree 4 return expected values."""
-    self.assertAllClose(bspline._quartic(position), weights)
+    self.assertAllClose(bspline._quartic(position), weights)  # pylint: disable=protected-access
 
   @parameterized.parameters(
       (((0.5,), (1.5,), (2.5,)), (((0.5, 0.5),), ((0.5, 0.5),), ((0.5, 0.5),)),
@@ -177,26 +172,28 @@ class BSplineTest(test_case.TestCase):
     positions_init = np.random.random_sample((10, 1))
     scale = num_knots if cyclical else num_knots - degree
     positions_init *= scale
-    positions = tf.convert_to_tensor(value=positions_init)
 
-    weights = bspline.knot_weights(
-        positions=positions,
-        num_knots=num_knots,
-        degree=degree,
-        cyclical=cyclical,
-        sparse_mode=False)
-    sparse_weights = bspline.knot_weights(
-        positions=positions,
-        num_knots=num_knots,
-        degree=degree,
-        cyclical=cyclical,
-        sparse_mode=True)[0]
+    def dense_mode_fn(positions):
+      return bspline.knot_weights(
+          positions=positions,
+          num_knots=num_knots,
+          degree=degree,
+          cyclical=cyclical,
+          sparse_mode=False)
+
+    def sparse_mode_fn(positions):
+      return bspline.knot_weights(
+          positions=positions,
+          num_knots=num_knots,
+          degree=degree,
+          cyclical=cyclical,
+          sparse_mode=True)[0]
 
     with self.subTest(name="dense_mode"):
-      self.assert_jacobian_is_correct(positions, positions_init, weights)
+      self.assert_jacobian_is_correct_fn(dense_mode_fn, [positions_init])
 
     with self.subTest(name="sparse_mode"):
-      self.assert_jacobian_is_correct(positions, positions_init, sparse_weights)
+      self.assert_jacobian_is_correct_fn(sparse_mode_fn, [positions_init])
 
 
 if __name__ == "__main__":

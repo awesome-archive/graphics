@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,9 +23,15 @@ from tensorflow_graphics.math import vector
 from tensorflow_graphics.util import asserts
 from tensorflow_graphics.util import export_api
 from tensorflow_graphics.util import shape
+from tensorflow_graphics.util import type_alias
 
 
-def distance_to_ray(point, origin, direction, keepdims=True, name=None):
+def distance_to_ray(point: type_alias.TensorLike,
+                    origin: type_alias.TensorLike,
+                    direction: type_alias.TensorLike,
+                    keepdims: bool = True,
+                    name: str = "point_distance_to_ray"
+                    ) -> tf.Tensor:
   """Computes the distance from a M-d point to a M-d ray.
 
   Note:
@@ -49,8 +55,7 @@ def distance_to_ray(point, origin, direction, keepdims=True, name=None):
     ValueError: If the shape of `point`, `origin`, or 'direction' is not
     supported.
   """
-  with tf.compat.v1.name_scope(name, "point_distance_to_ray",
-                               [point, origin, direction]):
+  with tf.name_scope(name):
     point = tf.convert_to_tensor(value=point)
     origin = tf.convert_to_tensor(value=origin)
     direction = tf.convert_to_tensor(value=direction)
@@ -69,7 +74,11 @@ def distance_to_ray(point, origin, direction, keepdims=True, name=None):
     return tf.norm(tensor=vec, axis=-1, keepdims=keepdims)
 
 
-def project_to_ray(point, origin, direction, name=None):
+def project_to_ray(point: type_alias.TensorLike,
+                   origin: type_alias.TensorLike,
+                   direction: type_alias.TensorLike,
+                   name: str = "point_project_to_ray"
+                   ) -> tf.Tensor:
   """Computes the projection of a M-d point on a M-d ray.
 
   Note:
@@ -90,8 +99,7 @@ def project_to_ray(point, origin, direction, name=None):
     ValueError: If the shape of `point`, `origin`, or 'direction' is not
     supported.
   """
-  with tf.compat.v1.name_scope(name, "point_project_to_ray",
-                               [point, origin, direction]):
+  with tf.name_scope(name):
     point = tf.convert_to_tensor(value=point)
     origin = tf.convert_to_tensor(value=origin)
     direction = tf.convert_to_tensor(value=direction)

@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from six.moves import zip  # pyrefly: ignore[missing-source-for-stubs]
 import tensorflow as tf
 
 from tensorflow_graphics.util import export_api
@@ -47,7 +48,7 @@ def _grid(starts, stops, nums):
   return tf.stack(tf.meshgrid(*layout, indexing="ij"), axis=-1)
 
 
-def generate(starts, stops, nums, name=None):
+def generate(starts, stops, nums, name="grid_generate"):
   r"""Generates a M-D uniform axis-aligned grid.
 
   Warning:
@@ -68,11 +69,11 @@ def generate(starts, stops, nums, name=None):
 
   Returns:
     A tensor of shape `[nums[0], ..., nums[M-1], M]` containing an M-D uniform
-      grid or a tensor of shape [B, nums[0], ..., nums[M-1], M]` containing B
+      grid or a tensor of shape `[B, nums[0], ..., nums[M-1], M]` containing B
       M-D uniform grids. Please refer to the example below for more details.
 
   Raises:
-    ValueError: If the shape of `starts`, `stops`, or 'nums' is not supported.
+    ValueError: If the shape of `starts`, `stops`, or `nums` is not supported.
 
   Examples:
     ```python
@@ -97,7 +98,7 @@ def generate(starts, stops, nums, name=None):
     axis and from -2.0 to 2.0 with 5 subdivisions for the y axis. This lead to a
     tensor of shape (3, 5, 2).
   """
-  with tf.compat.v1.name_scope(name, "grid_generate", [starts, stops, nums]):
+  with tf.name_scope(name):
     starts = tf.convert_to_tensor(value=starts)
     stops = tf.convert_to_tensor(value=stops)
     nums = tf.convert_to_tensor(value=nums)

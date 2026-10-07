@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,14 +13,9 @@
 # limitations under the License.
 """Tests for 2d rotation matrix."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl.testing import flagsaver
 from absl.testing import parameterized
 import numpy as np
-import tensorflow as tf
 
 from tensorflow_graphics.geometry.transformation import rotation_matrix_2d
 from tensorflow_graphics.geometry.transformation.tests import test_data as td
@@ -49,21 +44,15 @@ class RotationMatrix2dTest(test_case.TestCase):
   def test_from_euler_jacobian_preset(self):
     """Test the Jacobian of the from_euler function."""
     x_init = test_helpers.generate_preset_test_euler_angles(dimensions=1)
-    x = tf.convert_to_tensor(value=x_init)
 
-    y = rotation_matrix_2d.from_euler(x)
-
-    self.assert_jacobian_is_correct(x, x_init, y)
+    self.assert_jacobian_is_correct_fn(rotation_matrix_2d.from_euler, [x_init])
 
   @flagsaver.flagsaver(tfg_add_asserts_to_graph=False)
   def test_from_euler_jacobian_random(self):
     """Test the Jacobian of the from_euler function."""
     x_init = test_helpers.generate_random_test_euler_angles(dimensions=1)
-    x = tf.convert_to_tensor(value=x_init)
 
-    y = rotation_matrix_2d.from_euler(x)
-
-    self.assert_jacobian_is_correct(x, x_init, y)
+    self.assert_jacobian_is_correct_fn(rotation_matrix_2d.from_euler, [x_init])
 
   def test_from_euler_normalized_preset(self):
     """Tests that an angle maps to correct matrix."""
@@ -141,21 +130,15 @@ class RotationMatrix2dTest(test_case.TestCase):
   def test_inverse_jacobian_preset(self):
     """Test the Jacobian of the inverse function."""
     x_init = test_helpers.generate_preset_test_rotation_matrices_2d()
-    x = tf.convert_to_tensor(value=x_init)
 
-    y = rotation_matrix_2d.inverse(x)
-
-    self.assert_jacobian_is_correct(x, x_init, y)
+    self.assert_jacobian_is_correct_fn(rotation_matrix_2d.inverse, [x_init])
 
   @flagsaver.flagsaver(tfg_add_asserts_to_graph=False)
   def test_inverse_jacobian_random(self):
     """Test the Jacobian of the inverse function."""
     x_init = test_helpers.generate_random_test_rotation_matrix_2d()
-    x = tf.convert_to_tensor(value=x_init)
 
-    y = rotation_matrix_2d.inverse(x)
-
-    self.assert_jacobian_is_correct(x, x_init, y)
+    self.assert_jacobian_is_correct_fn(rotation_matrix_2d.inverse, [x_init])
 
   def test_inverse_random(self):
     """Checks that inverting rotated points results in no transformation."""
@@ -218,29 +201,21 @@ class RotationMatrix2dTest(test_case.TestCase):
   def test_rotate_jacobian_preset(self):
     """Test the Jacobian of the rotate function."""
     x_matrix_init = test_helpers.generate_preset_test_rotation_matrices_2d()
-    x_matrix = tf.convert_to_tensor(value=x_matrix_init)
     tensor_shape = x_matrix_init.shape[:-2] + (2,)
     x_point_init = np.random.uniform(size=tensor_shape)
-    x_point = tf.convert_to_tensor(value=x_point_init)
 
-    y = rotation_matrix_2d.rotate(x_point, x_matrix)
-
-    self.assert_jacobian_is_correct(x_matrix, x_matrix_init, y)
-    self.assert_jacobian_is_correct(x_point, x_point_init, y)
+    self.assert_jacobian_is_correct_fn(rotation_matrix_2d.rotate,
+                                       [x_point_init, x_matrix_init])
 
   @flagsaver.flagsaver(tfg_add_asserts_to_graph=False)
   def test_rotate_jacobian_random(self):
     """Test the Jacobian of the rotate function."""
     x_matrix_init = test_helpers.generate_random_test_rotation_matrix_2d()
-    x_matrix = tf.convert_to_tensor(value=x_matrix_init)
     tensor_shape = x_matrix_init.shape[:-2] + (2,)
     x_point_init = np.random.uniform(size=tensor_shape)
-    x_point = tf.convert_to_tensor(value=x_point_init)
 
-    y = rotation_matrix_2d.rotate(x_point, x_matrix)
-
-    self.assert_jacobian_is_correct(x_matrix, x_matrix_init, y)
-    self.assert_jacobian_is_correct(x_point, x_point_init, y)
+    self.assert_jacobian_is_correct_fn(rotation_matrix_2d.rotate,
+                                       [x_point_init, x_matrix_init])
 
   @parameterized.parameters(
       ((td.AXIS_2D_0, td.ANGLE_90), (td.AXIS_2D_0,)),

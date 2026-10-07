@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,13 +17,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from typing import Any, List, Optional, Tuple, Union
+
 import tensorflow as tf
 
-from tensorflow_graphics.util import export_api
 from tensorflow_graphics.util import shape
+from tensorflow_graphics.util import type_alias
 
 
-def _is_dynamic_shape(tensors):
+def _is_dynamic_shape(tensors: Union[List[type_alias.TensorLike],
+                                     Tuple[Any, tf.sparse.SparseTensor]]):
   """Helper function to test if any tensor in a list has a dynamic shape.
 
   Args:
@@ -37,7 +40,9 @@ def _is_dynamic_shape(tensors):
   return not all([shape.is_static(tensor.shape) for tensor in tensors])
 
 
-def check_valid_graph_convolution_input(data, neighbors, sizes):
+def check_valid_graph_convolution_input(data: type_alias.TensorLike,
+                                        neighbors: tf.sparse.SparseTensor,
+                                        sizes: type_alias.TensorLike):
   """Checks that the inputs are valid for graph convolution ops.
 
   Note:
@@ -87,7 +92,9 @@ def check_valid_graph_convolution_input(data, neighbors, sizes):
         broadcast_compatible=False)
 
 
-def check_valid_graph_pooling_input(data, pool_map, sizes):
+def check_valid_graph_pooling_input(data: type_alias.TensorLike,
+                                    pool_map: tf.sparse.SparseTensor,
+                                    sizes: type_alias.TensorLike):
   """Checks that the inputs are valid for graph pooling.
 
   Note:
@@ -137,7 +144,9 @@ def check_valid_graph_pooling_input(data, pool_map, sizes):
         broadcast_compatible=False)
 
 
-def check_valid_graph_unpooling_input(data, pool_map, sizes):
+def check_valid_graph_unpooling_input(data: type_alias.TensorLike,
+                                      pool_map: tf.sparse.SparseTensor,
+                                      sizes: type_alias.TensorLike):
   """Checks that the inputs are valid for graph unpooling.
 
   Note:
@@ -188,7 +197,9 @@ def check_valid_graph_unpooling_input(data, pool_map, sizes):
         broadcast_compatible=False)
 
 
-def flatten_batch_to_2d(data, sizes=None, name=None):
+def flatten_batch_to_2d(data: type_alias.TensorLike,
+                        sizes: type_alias.TensorLike = None,
+                        name: str = "utils_flatten_batch_to_2d"):
   """Reshapes a batch of 2d Tensors by flattening across the batch dimensions.
 
   Note:
@@ -238,8 +249,7 @@ def flatten_batch_to_2d(data, sizes=None, name=None):
   Raises:
     ValueError: if the input tensor dimensions are invalid.
   """
-  with tf.compat.v1.name_scope(name, "utils_flatten_batch_to_2d",
-                               [data, sizes]):
+  with tf.name_scope(name):
     data = tf.convert_to_tensor(value=data)
     if sizes is not None:
       sizes = tf.convert_to_tensor(value=sizes)
@@ -260,9 +270,9 @@ def flatten_batch_to_2d(data, sizes=None, name=None):
     if sizes is None:
       flat = tf.reshape(data, shape=(-1, data_shape[-1]))
 
-      def unflatten(flat, name=None):
+      def unflatten(flat, name="utils_unflatten"):
         """Invert flatten_batch_to_2d."""
-        with tf.compat.v1.name_scope(name, "utils_unflatten", [flat]):
+        with tf.name_scope(name):
           flat = tf.convert_to_tensor(value=flat)
           output_shape = tf.concat((data_shape[:-1], tf.shape(input=flat)[-1:]),
                                    axis=0)
@@ -276,9 +286,9 @@ def flatten_batch_to_2d(data, sizes=None, name=None):
       mask_indices = tf.cast(tf.where(mask), tf.int32)
       flat = tf.gather_nd(params=data, indices=mask_indices)
 
-      def unflatten(flat, name=None):
+      def unflatten(flat, name="utils_unflatten"):
         """Invert flatten_batch_to_2d."""
-        with tf.compat.v1.name_scope(name, "utils_unflatten", [flat]):
+        with tf.name_scope(name):
           flat = tf.convert_to_tensor(value=flat)
           output_shape = tf.concat((data_shape[:-1], tf.shape(input=flat)[-1:]),
                                    axis=0)
@@ -288,7 +298,10 @@ def flatten_batch_to_2d(data, sizes=None, name=None):
     return flat, unflatten
 
 
-def unflatten_2d_to_batch(data, sizes, max_rows=None, name=None):
+def unflatten_2d_to_batch(data: type_alias.TensorLike,
+                          sizes: type_alias.TensorLike,
+                          max_rows: Optional[int] = None,
+                          name: str = "utils_unflatten_2d_to_batch"):
   r"""Reshapes a 2d Tensor into a batch of 2d Tensors.
 
   The `data` tensor with shape `[D1, D2]` will be mapped to a tensor with shape
@@ -349,8 +362,7 @@ def unflatten_2d_to_batch(data, sizes, max_rows=None, name=None):
   Returns:
     A tensor with shape `[A1, A2, ..., max_rows, D2]`.
   """
-  with tf.compat.v1.name_scope(name, "utils_unflatten_2d_to_batch",
-                               [data, sizes]):
+  with tf.name_scope(name):
     data = tf.convert_to_tensor(value=data)
     sizes = tf.convert_to_tensor(value=sizes)
     if max_rows is None:
@@ -369,10 +381,10 @@ def unflatten_2d_to_batch(data, sizes, max_rows=None, name=None):
     return tf.scatter_nd(indices=mask_indices, updates=data, shape=output_shape)
 
 
-def convert_to_block_diag_2d(data,
-                             sizes=None,
-                             validate_indices=False,
-                             name=None):
+def convert_to_block_diag_2d(data: tf.sparse.SparseTensor,
+                             sizes: Optional[type_alias.TensorLike] = None,
+                             validate_indices: bool = False,
+                             name: str = "utils_convert_to_block_diag_2d"):
   """Convert a batch of 2d SparseTensors to a 2d block diagonal SparseTensor.
 
   Note:
@@ -406,8 +418,7 @@ def convert_to_block_diag_2d(data,
     TypeError: if the input types are invalid.
     ValueError: if the input dimensions are invalid.
   """
-  with tf.compat.v1.name_scope(name, "utils_convert_to_block_diag_2d",
-                               [data, sizes, validate_indices]):
+  with tf.name_scope(name):
     data = tf.compat.v1.convert_to_tensor_or_sparse_tensor(value=data)
     if sizes is not None:
       sizes = tf.convert_to_tensor(value=sizes)
@@ -456,53 +467,5 @@ def convert_to_block_diag_2d(data,
     return block_diag
 
 
-def partition_sums_2d(data, group_ids, row_weights=None, name=None):
-  """Sum over subsets of rows in a 2-D tensor.
-
-  Args:
-    data: 2-D tensor with shape `[D1, D2]`.
-    group_ids: 1-D `int` tensor with shape `[D1]`.
-    row_weights: 1-D tensor with shape `[D1]`. Can be `None`.
-    name: A name for this op. Defaults to 'utils_partition_sums_2d'.
-
-  Returns:
-    A 2-D tensor with shape `[max(group_ids) + 1, D2]` where
-      `output[i, :] = sum(data[j, :] * weight[j] * 1(group_ids[j] == i)), 1(.)`
-      is the indicator function.
-
-  Raises:
-    ValueError: if the inputs have invalid dimensions or types.
-  """
-  with tf.compat.v1.name_scope(name, "utils_partition_sums_2d",
-                               [data, group_ids, row_weights]):
-    data = tf.convert_to_tensor(value=data)
-    group_ids = tf.convert_to_tensor(value=group_ids)
-    if not group_ids.dtype.is_integer:
-      raise TypeError("'group_ids' must be an integer tensor.")
-    elif group_ids.dtype != tf.int64:
-      group_ids = tf.cast(group_ids, dtype=tf.int64)
-    if row_weights is None:
-      row_weights = tf.ones_like(group_ids, dtype=data.dtype)
-    else:
-      row_weights = tf.convert_to_tensor(value=row_weights)
-
-    if row_weights.dtype != data.dtype:
-      raise TypeError("'data' and 'row_weights' must have the same type.")
-    shape.check_static(tensor=data, tensor_name="data", has_rank=2)
-    shape.check_static(tensor=group_ids, tensor_name="group_ids", has_rank=1)
-    shape.check_static(
-        tensor=row_weights, tensor_name="row_weights", has_rank=1)
-    shape.compare_dimensions(
-        tensors=(data, group_ids, row_weights),
-        tensor_names=("data", "group_ids", "row_weights"),
-        axes=0)
-
-    num_rows = tf.size(input=group_ids, out_type=tf.int64)
-    sparse_indices = tf.stack((group_ids, tf.range(num_rows)), axis=1)
-    out_shape = (tf.reduce_max(input_tensor=group_ids) + 1, num_rows)
-    sparse = tf.SparseTensor(sparse_indices, row_weights, dense_shape=out_shape)
-    return tf.sparse.sparse_dense_matmul(sparse, data)
-
-
 # API contains all public functions and classes.
-__all__ = export_api.get_functions_and_classes()
+__all__ = []

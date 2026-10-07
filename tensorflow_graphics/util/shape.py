@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,12 +18,17 @@ from __future__ import division
 from __future__ import print_function
 
 import itertools
+from typing import Any, List, Optional, Tuple, Union
 
+import numpy as np
 import six
+from six.moves import range  # pyrefly: ignore[missing-source-for-stubs]
+from six.moves import zip  # pyrefly: ignore[missing-source-for-stubs]
 import tensorflow as tf
 
 
-def _broadcast_shape_helper(shape_x, shape_y):
+def _broadcast_shape_helper(shape_x: tf.TensorShape,
+                            shape_y: tf.TensorShape) -> Optional[List[Any]]:
   """Helper function for is_broadcast_compatible and broadcast_shape.
 
   Args:
@@ -71,7 +76,8 @@ def _broadcast_shape_helper(shape_x, shape_y):
   return return_dims
 
 
-def is_broadcast_compatible(shape_x, shape_y):
+def is_broadcast_compatible(shape_x: tf.TensorShape,
+                            shape_y: tf.TensorShape) -> bool:
   """Returns True if `shape_x` and `shape_y` are broadcast compatible.
 
   Args:
@@ -87,7 +93,8 @@ def is_broadcast_compatible(shape_x, shape_y):
   return _broadcast_shape_helper(shape_x, shape_y) is not None
 
 
-def get_broadcasted_shape(shape_x, shape_y):
+def get_broadcasted_shape(shape_x: tf.TensorShape,
+                          shape_y: tf.TensorShape) -> Optional[List[Any]]:
   """Returns the common shape for broadcast compatible shapes.
 
   Args:
@@ -129,20 +136,18 @@ def _fix_axis_dim_pairs(pairs, name):
 
 def _get_dim(tensor, axis):
   """Returns dimensionality of a tensor for a given axis."""
-  if tf.executing_eagerly():
-    return int(tf.shape(input=tensor).numpy()[axis])
-  else:
-    return tensor.shape[axis].value
+  return tf.compat.dimension_value(tensor.shape[axis])
 
 
-def check_static(tensor,
-                 has_rank=None,
-                 has_rank_greater_than=None,
-                 has_rank_less_than=None,
+def check_static(tensor: tf.Tensor,
+                 has_rank: Optional[int] = None,
+                 has_rank_greater_than: Optional[int] = None,
+                 has_rank_less_than: Optional[int] = None,
                  has_dim_equals=None,
                  has_dim_greater_than=None,
                  has_dim_less_than=None,
-                 tensor_name='tensor'):
+                 tensor_name: str = 'tensor') -> None:
+  # TODO(cengizo): Typing for has_dim_equals, has_dim_greater(less)_than.
   """Checks static shapes for rank and dimension constraints.
 
   This function can be used to check a tensor's shape for multiple rank and
@@ -164,7 +169,7 @@ def check_static(tensor,
       `int`s, or a list or tuple containing multiple such pairs. Each pair is in
       the form (`axis`, `dim`), which means the function should check if
       `tensor.shape[axis] > dim`.
-    has_dim_less_than: EEither a tuple or list containing a single pair of
+    has_dim_less_than: Either a tuple or list containing a single pair of
       `int`s, or a list or tuple containing multiple such pairs. Each pair is in
       the form (`axis`, `dim`), which means the function should check if
       `tensor.shape[axis] < dim`.
@@ -247,7 +252,8 @@ def _fix_axes(tensors, axes, allow_negative):
       ((allow_negative or
         (not allow_negative and axis >= 0)) and axis < tensor.shape.ndims)
       for tensor, axis in zip(tensors, axes)):
-    rank_axis_pairs = zip([tensor.shape.ndims for tensor in tensors], axes)
+    rank_axis_pairs = list(
+        zip([tensor.shape.ndims for tensor in tensors], axes))
     raise ValueError(
         'Some axes are out of bounds. Given rank-axes pairs: {}'.format(
             [pair for pair in rank_axis_pairs]))
@@ -275,11 +281,12 @@ def _raise_error(tensor_names, batch_shapes):
       'Not all batch dimensions are identical: {}'.format(formatted_list))
 
 
-def compare_batch_dimensions(tensors,
-                             last_axes,
-                             broadcast_compatible,
-                             initial_axes=0,
-                             tensor_names=None):
+def compare_batch_dimensions(
+    tensors: Union[List[tf.Tensor], Tuple[tf.Tensor]],
+    last_axes: Union[int, List[int], Tuple[int]],
+    broadcast_compatible: bool,
+    initial_axes: Union[int, List[int], Tuple[int]] = 0,
+    tensor_names: Optional[Union[List[str], Tuple[str]]] = None) -> None:
   """Compares batch dimensions for tensors with static shapes.
 
   Args:
@@ -346,7 +353,10 @@ def compare_batch_dimensions(tensors,
           ]))
 
 
-def compare_dimensions(tensors, axes, tensor_names=None):
+def compare_dimensions(
+    tensors: Union[List[tf.Tensor], Tuple[tf.Tensor]],
+    axes: Union[int, List[int], Tuple[int]],
+    tensor_names: Optional[Union[List[str], Tuple[str]]] = None) -> None:
   """Compares dimensions of tensors with static or dynamic shapes.
 
   Args:
@@ -368,31 +378,64 @@ def compare_dimensions(tensors, axes, tensor_names=None):
   axes = _fix_axes(tensors, axes, allow_negative=False)
   if tensor_names is None:
     tensor_names = _give_default_names(tensors, 'tensor')
-  if not tf.executing_eagerly():
-    dimensions = [
-        int(tensor.shape[axis]) if tensor.shape[axis].value is not None else 1
-        for tensor, axis in zip(tensors, axes)
-    ]
-  else:
-    # In eager mode tensor.shape[axis].value doesn't exist if v2 behavior is
-    # enabled. Therefore we can use tf.shape() to return the shape as a tensor.
-    # This is compatible with both v1 and v2.
-    dimensions = [
-        int(tf.shape(input=tensor).numpy()[axis])
-        for tensor, axis in zip(tensors, axes)
-    ]
+  dimensions = [_get_dim(tensor, axis) for tensor, axis in zip(tensors, axes)]
   if not _all_are_equal(dimensions):
     raise ValueError('Tensors {} must have the same number of dimensions in '
                      'axes {}, but they are {}.'.format(
                          list(tensor_names), list(axes), list(dimensions)))
 
 
-def is_static(tensor_shape):
+def is_static(
+    tensor_shape: Union[List[Any], Tuple[Any], tf.TensorShape]) -> bool:
   """Checks if the given tensor shape is static."""
   if isinstance(tensor_shape, (list, tuple)):
     return None not in tensor_shape
   else:
     return None not in tensor_shape.as_list()
+
+
+def add_batch_dimensions(tensor: tf.Tensor,
+                         tensor_name: str,
+                         batch_shape: List[int],
+                         last_axis: Optional[int] = None) -> tf.Tensor:
+  """Broadcasts tensor to match batch dimensions.
+
+  It will either broadcast to all provided batch dimensions, therefore
+  increasing tensor shape by len(batch_shape) dimensions or will do nothing if
+  batch dimensions already present and equal to expected batch dimensions.
+
+  Args:
+    tensor: A tensor to broadcast of a shape [A1, ..., An, B1, ..., Bn]. Where
+      [A1, ..., An] is batch dimensions (it is allowed to have no batch
+      dimensions), and [B1, ..., Bn] are other tensor dimensions. If [A1, ...,
+      An] are present but different from values in `batch_shape` the error will
+      be thrown.
+    tensor_name: Name of `tensor` to be used in the error message if one is
+    batch_shape: list of `int` representing desired batch dimensions.
+    last_axis: An `int` corresponding to the last axis of the batch (with zero
+      based indices). For instance, if there is only a single batch dimension,
+      last axis should be `0`. If there is no batch dimensions it must be set to
+      `None`. thrown.
+
+  Returns:
+    Tensor of a shape `batch_shape` + [B1, ..., Bn] or unmodified tensor if
+    `batch_shape` = [A1, ..., An].
+  Raises:
+    ValueError if tensor already has batch dimensions different from desired
+      one.
+  """
+  if last_axis is not None:
+    last_axis = _fix_axes([tensor], [last_axis], allow_negative=True)[0]
+    tensor_batch_shape = tensor.shape.as_list()[:last_axis + 1]
+    if np.array_equal(tensor_batch_shape, batch_shape):
+      return tensor
+    elif tensor_batch_shape:
+      raise ValueError(
+          'Tensor {} has batch dimensions different from target '
+          'one. Found {}, but expected no batch dimensions or {}'.format(
+              tensor_name, tensor.shape[:last_axis + 1], batch_shape))
+
+  return tf.broadcast_to(tensor, batch_shape + list(tensor.shape))
 
 
 # The util functions or classes are not exported.

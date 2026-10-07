@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,15 +19,20 @@ from __future__ import print_function
 
 import numpy as np
 
+from six.moves import range  # pyrefly: ignore[missing-source-for-stubs]
 import tensorflow as tf
 
 from tensorflow_graphics.geometry.representation import triangle
 from tensorflow_graphics.util import export_api
 from tensorflow_graphics.util import safe_ops
 from tensorflow_graphics.util import shape
+from tensorflow_graphics.util import type_alias
 
 
-def gather_faces(vertices, indices, name=None):
+def gather_faces(vertices: type_alias.TensorLike,
+                 indices: type_alias.TensorLike,
+                 name: str = "normals_gather_faces"
+                 ) -> type_alias.TensorLike:
   """Gather corresponding vertices for each face.
 
   Note:
@@ -49,8 +54,7 @@ def gather_faces(vertices, indices, name=None):
   Raises:
     ValueError: If the shape of `vertices` or `indices` is not supported.
   """
-  with tf.compat.v1.name_scope(name, "normals_gather_faces",
-                               [vertices, indices]):
+  with tf.name_scope(name):
     vertices = tf.convert_to_tensor(value=vertices)
     indices = tf.convert_to_tensor(value=indices)
 
@@ -65,19 +69,22 @@ def gather_faces(vertices, indices, name=None):
 
     if hasattr(tf, "batch_gather"):
       expanded_vertices = tf.expand_dims(vertices, axis=-3)
-      broadcasted_shape = tf.concat([tf.shape(input=indices)[:-1],
-                                     tf.shape(input=vertices)[-2:]],
-                                    axis=-1)
-      broadcasted_vertices = tf.broadcast_to(
-          expanded_vertices,
-          broadcasted_shape)
-      return tf.batch_gather(broadcasted_vertices, indices)
+      broadcasted_shape = tf.concat(
+          [tf.shape(input=indices)[:-1],
+           tf.shape(input=vertices)[-2:]],
+          axis=-1)
+      broadcasted_vertices = tf.broadcast_to(expanded_vertices,
+                                             broadcasted_shape)
+      return tf.gather(broadcasted_vertices, indices, batch_dims=-1)
     else:
       return tf.gather(
           vertices, indices, axis=-2, batch_dims=indices.shape.ndims - 2)
 
 
-def face_normals(faces, clockwise=True, normalize=True, name=None):
+def face_normals(faces: type_alias.TensorLike,
+                 clockwise: bool = True,
+                 normalize: bool = True,
+                 name: str = "normals_face_normals") -> type_alias.TensorLike:
   """Computes face normals for meshes.
 
   This function supports planar convex polygon faces. Note that for
@@ -102,7 +109,7 @@ def face_normals(faces, clockwise=True, normalize=True, name=None):
   Raises:
     ValueError: If the shape of `vertices`, `faces` is not supported.
   """
-  with tf.compat.v1.name_scope(name, "normals_face_normals", [faces]):
+  with tf.name_scope(name):
     faces = tf.convert_to_tensor(value=faces)
 
     shape.check_static(
@@ -117,7 +124,11 @@ def face_normals(faces, clockwise=True, normalize=True, name=None):
     return triangle.normal(*vertices, clockwise=clockwise, normalize=normalize)
 
 
-def vertex_normals(vertices, indices, clockwise=True, name=None):
+def vertex_normals(
+    vertices: type_alias.TensorLike,
+    indices: type_alias.TensorLike,
+    clockwise: bool = True,
+    name: str = "normals_vertex_normals") -> type_alias.TensorLike:
   """Computes vertex normals from a mesh.
 
   This function computes vertex normals as the weighted sum of the adjacent
@@ -147,8 +158,7 @@ def vertex_normals(vertices, indices, clockwise=True, name=None):
   Raises:
     ValueError: If the shape of `vertices`, `indices` is not supported.
   """
-  with tf.compat.v1.name_scope(name, "normals_vertex_normals",
-                               [vertices, indices]):
+  with tf.name_scope(name):
     vertices = tf.convert_to_tensor(value=vertices)
     indices = tf.convert_to_tensor(value=indices)
 
@@ -214,12 +224,12 @@ def vertex_normals(vertices, indices, clockwise=True, name=None):
       for i in range(shape_indices[-1]):
         scatter_indices = tf.concat([outer_indices, indices[..., i:i + 1]],
                                     axis=-1)
-        unnormalized_vertex_normals = tf.compat.v1.tensor_scatter_add(
+        unnormalized_vertex_normals = tf.tensor_scatter_nd_add(
             unnormalized_vertex_normals, scatter_indices, mesh_face_normals)
     else:
       unnormalized_vertex_normals = tf.zeros_like(vertices)
       for i in range(shape_indices[-1]):
-        unnormalized_vertex_normals = tf.compat.v1.tensor_scatter_add(
+        unnormalized_vertex_normals = tf.tensor_scatter_nd_add(
             unnormalized_vertex_normals, indices[..., i:i + 1],
             mesh_face_normals)
 

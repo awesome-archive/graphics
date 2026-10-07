@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,10 @@
 # limitations under the License.
 """Tests for quadratic_radial_distortion."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from absl.testing import parameterized
 import numpy as np
 import tensorflow as tf
+
 from tensorflow_graphics.rendering.camera import quadratic_radial_distortion
 from tensorflow_graphics.util import test_case
 
@@ -277,14 +274,14 @@ class QuadraticRadialDistortionTest(test_case.TestCase):
     squared_radii = _get_random_radii().astype(np.float64) * 0.5
     distortion_coefficients = _get_random_coefficient().astype(np.float64) * 0.5
     distortion_coefficients -= 0.25
-    squared_radii_tensor = tf.convert_to_tensor(
-        value=squared_radii, dtype=tf.float64)
 
-    distortion, _ = distortion_function(squared_radii_tensor,
-                                        distortion_coefficients)
+    def distortion_fn(squared_radii):
+      distortion, _ = distortion_function(squared_radii,
+                                          distortion_coefficients)
+      return distortion
 
-    self.assert_jacobian_is_correct(
-        squared_radii_tensor, squared_radii, distortion, delta=1e-7, atol=1e-3)
+    self.assert_jacobian_is_correct_fn(
+        distortion_fn, [squared_radii], delta=1e-7, atol=1e-3)
 
   @parameterized.parameters(quadratic_radial_distortion.distortion_factor,
                             quadratic_radial_distortion.undistortion_factor)
@@ -293,18 +290,14 @@ class QuadraticRadialDistortionTest(test_case.TestCase):
     squared_radii = _get_random_radii().astype(np.float64) * 0.5
     distortion_coefficients = _get_random_coefficient().astype(np.float64) * 0.5
     distortion_coefficients -= 0.25
-    distortion_coefficients_tensor = tf.convert_to_tensor(
-        value=distortion_coefficients)
 
-    distortion, _ = distortion_function(squared_radii,
-                                        distortion_coefficients_tensor)
+    def distortion_fn(distortion_coefficients):
+      distortion, _ = distortion_function(squared_radii,
+                                          distortion_coefficients)
+      return distortion
 
-    self.assert_jacobian_is_correct(
-        distortion_coefficients_tensor,
-        distortion_coefficients,
-        distortion,
-        delta=1e-7,
-        atol=1e-3)
+    self.assert_jacobian_is_correct_fn(
+        distortion_fn, [distortion_coefficients], delta=1e-7, atol=1e-3)
 
 
 if __name__ == '__main__':

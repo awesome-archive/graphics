@@ -1,4 +1,4 @@
-#Copyright 2018 Google LLC
+# Copyright 2020 The TensorFlow Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,8 +35,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import itertools
-
+from six.moves import zip  # pyrefly: ignore[missing-source-for-stubs]
 import tensorflow as tf
 
 from tensorflow_graphics.util import export_api
@@ -55,24 +54,20 @@ def _values_and_jacobian(residuals, variables):
 
   def _compute_residual_values(residuals, variables):
     """Computes the residual values."""
-    return [
-        tf.unstack(tf.reshape(residual(*variables), [-1]))
-        for residual in residuals
-    ]
+    return tf.concat([
+        tf.reshape(residual(*variables), shape=(-1,)) for residual in residuals
+    ],
+                     axis=-1)
 
   def _compute_jacobian(values, variables, tape):
     """Computes the Jacobian matrix."""
-    jacobian = []
-    for value in itertools.chain.from_iterable(values):
-      gradient = tape.gradient(value, variables)
-      gradient = [
-          tf.zeros_like(v) if g is None else g
-          for v, g in zip(variables, gradient)
-      ]
-      gradient = [tf.reshape(g, [-1]) for g in gradient]
-      gradient = tf.concat(gradient, axis=0)
-      jacobian.append(gradient)
-    return tf.stack(jacobian)
+    jacobians = tape.jacobian(
+        values, variables, unconnected_gradients=tf.UnconnectedGradients.ZERO)
+    return tf.concat([
+        tf.reshape(jacobian, shape=(tf.shape(input=jacobian)[0], -1))
+        for jacobian in jacobians
+    ],
+                     axis=-1)
 
   with tf.GradientTape(watch_accessed_variables=False, persistent=True) as tape:
     for variable in variables:
@@ -80,7 +75,7 @@ def _values_and_jacobian(residuals, variables):
     values = _compute_residual_values(residuals, variables)
   jacobian = _compute_jacobian(values, variables, tape)
   del tape
-  values = tf.expand_dims(tf.concat(values, axis=0), axis=-1)
+  values = tf.expand_dims(values, axis=-1)
   return values, jacobian
 
 
@@ -90,7 +85,7 @@ def minimize(residuals,
              regularizer=1e-20,
              regularizer_multiplier=10.0,
              callback=None,
-             name=None):
+             name="levenberg_marquardt_minimize"):
   r"""Minimizes a set of residuals in the least-squares sense.
 
   Args:
@@ -156,7 +151,7 @@ def minimize(residuals,
   """
   if not isinstance(variables, (tuple, list)):
     variables = [variables]
-  with tf.compat.v1.name_scope(name, 'levenberg_marquardt_minimize', variables):
+  with tf.name_scope(name):
     if not isinstance(residuals, (tuple, list)):
       residuals = [residuals]
     if isinstance(residuals, tuple):
